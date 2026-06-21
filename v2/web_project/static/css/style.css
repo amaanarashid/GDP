@@ -1,0 +1,409 @@
+/* ===========================================================================
+   PANOPTES — design tokens
+   Direction: an industrial telemetry / SCADA control-room panel, not a SaaS
+   dashboard. Dark carbon base, amber instrumentation accent, monospace
+   numerals for anything that is a live reading (mirrors how real plant HMI
+   screens differentiate "data" typography from "label" typography).
+=========================================================================== */
+:root{
+  --carbon: #0b0d10;
+  --panel: #12161b;
+  --panel-raised: #161b21;
+  --steel: #232b33;
+  --steel-light: #313c46;
+  --mist: #8a96a3;
+  --mist-dim: #5b6570;
+  --paper: #e7ebee;
+  --amber: #ffb627;
+  --amber-dim: #8a6418;
+  --green: #3ddc84;
+  --yellow: #f5c542;
+  --orange: #ff8c42;
+  --red: #ff4d4d;
+
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --font-body: "Inter", sans-serif;
+}
+
+*{ box-sizing: border-box; }
+
+html, body{
+  margin: 0;
+  padding: 0;
+  background: var(--carbon);
+  color: var(--paper);
+  font-family: var(--font-body);
+  background-image:
+    radial-gradient(circle at 15% 0%, rgba(255,182,39,0.05), transparent 40%),
+    repeating-linear-gradient(transparent, transparent 31px, rgba(255,255,255,0.012) 32px);
+}
+
+a{ color: inherit; }
+
+/* ---------------------------------------------------------------------- */
+/* Topbar                                                                  */
+/* ---------------------------------------------------------------------- */
+.topbar{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 14px 28px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--steel);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+.topbar__brand{
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--font-display);
+}
+.topbar__mark{ color: var(--amber); font-size: 18px; }
+.topbar__title{
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-size: 15px;
+}
+.topbar__title-sub{
+  font-family: var(--font-body);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--mist-dim);
+  text-transform: lowercase;
+}
+.topbar__nav{ display: flex; gap: 6px; }
+.topbar__nav a{
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mist);
+  padding: 8px 14px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  transition: all .15s ease;
+}
+.topbar__nav a:hover{ color: var(--paper); border-color: var(--steel); }
+.topbar__nav a.is-active{
+  color: var(--amber);
+  background: rgba(255,182,39,0.08);
+  border-color: var(--amber-dim);
+}
+.topbar__status{
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--mist-dim);
+  display: flex; align-items: center; gap: 6px;
+  white-space: nowrap;
+}
+.dot{ width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.dot--live{ background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse{ 0%,100%{ opacity: 1; } 50%{ opacity: .35; } }
+
+/* ---------------------------------------------------------------------- */
+/* Page layout                                                            */
+/* ---------------------------------------------------------------------- */
+.page{
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 28px 28px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.grid{
+  display: grid;
+  gap: 20px;
+}
+.grid--2{ grid-template-columns: 1fr 1fr; }
+.grid--3{ grid-template-columns: 1fr 1fr 1fr; }
+
+@media (max-width: 900px){
+  .grid--2, .grid--3{ grid-template-columns: 1fr; }
+  .topbar{ flex-wrap: wrap; }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Panel (the workhorse card) - bracketed corners like a rack-mounted      */
+/* instrument plate. This is the page's signature structural device: it  */
+/* literally reads as factory-panel hardware, justified by the subject.   */
+/* ---------------------------------------------------------------------- */
+.panel{
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--steel);
+  border-radius: 3px;
+  padding: 18px 20px;
+}
+.panel::before, .panel::after,
+.panel__corner-tl, .panel__corner-br{ content: ""; }
+
+.panel::before{
+  content: "";
+  position: absolute;
+  top: -1px; left: -1px;
+  width: 10px; height: 10px;
+  border-top: 2px solid var(--amber-dim);
+  border-left: 2px solid var(--amber-dim);
+}
+.panel::after{
+  content: "";
+  position: absolute;
+  bottom: -1px; right: -1px;
+  width: 10px; height: 10px;
+  border-bottom: 2px solid var(--amber-dim);
+  border-right: 2px solid var(--amber-dim);
+}
+
+.panel__header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--steel);
+}
+.panel__eyebrow{
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  color: var(--amber);
+  text-transform: uppercase;
+}
+.panel__title{
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin: 2px 0 0;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Data rows / readouts                                                   */
+/* ---------------------------------------------------------------------- */
+.field-row{
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px dashed rgba(255,255,255,0.06);
+  font-size: 13px;
+}
+.field-row:last-child{ border-bottom: none; }
+.field-row__label{ color: var(--mist); }
+.field-row__value{
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--paper);
+  text-align: right;
+}
+
+.readout{
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 30px;
+  letter-spacing: -0.01em;
+}
+.readout--sm{ font-size: 20px; }
+
+/* ---------------------------------------------------------------------- */
+/* Status pill                                                            */
+/* ---------------------------------------------------------------------- */
+.status-pill{
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  border-radius: 3px;
+  border: 1px solid currentColor;
+}
+.status-pill .dot{ background: currentColor; box-shadow: 0 0 6px currentColor; }
+
+/* ---------------------------------------------------------------------- */
+/* Sensor cards (Live Sensor Data)                                        */
+/* ---------------------------------------------------------------------- */
+.sensor-card{
+  background: var(--panel-raised);
+  border: 1px solid var(--steel);
+  border-radius: 3px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sensor-card__label{
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mist);
+}
+.sensor-card__value{
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 700;
+}
+.sensor-card__unit{ font-size: 13px; color: var(--mist-dim); font-weight: 500; }
+.sensor-card__bar{
+  margin-top: 6px;
+  height: 4px;
+  background: var(--steel);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.sensor-card__bar-fill{
+  height: 100%;
+  background: var(--amber);
+  transition: width .4s ease;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Digital Twin                                                           */
+/* ---------------------------------------------------------------------- */
+.twin-wrap{ display: flex; flex-direction: column; gap: 12px; }
+.twin-svg{ width: 100%; height: auto; }
+.twin-component{ transition: fill .5s ease, filter .5s ease; }
+.twin-component-label{
+  font-family: var(--font-mono);
+  font-size: 11px;
+  fill: var(--carbon);
+  font-weight: 700;
+}
+.twin-legend{
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--mist);
+}
+.twin-legend span{ display: inline-flex; align-items: center; gap: 6px; }
+.twin-legend i{ width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+
+@keyframes pulse-ring{
+  0%{ opacity: 0.7; transform: scale(1); }
+  100%{ opacity: 0; transform: scale(1.6); }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Buttons                                                                */
+/* ---------------------------------------------------------------------- */
+.btn{
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 10px 16px;
+  border-radius: 3px;
+  border: 1px solid var(--steel-light);
+  background: var(--panel-raised);
+  color: var(--paper);
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.btn:hover{ border-color: var(--amber); color: var(--amber); }
+.btn:active{ transform: translateY(1px); }
+.btn--primary{
+  background: var(--amber);
+  color: var(--carbon);
+  border-color: var(--amber);
+}
+.btn--primary:hover{ background: #ffc657; color: var(--carbon); }
+.btn--danger{ border-color: var(--red); color: var(--red); }
+.btn--danger:hover{ background: rgba(255,77,77,0.1); }
+.btn--ghost{ background: transparent; }
+.btn:disabled{ opacity: 0.4; cursor: not-allowed; }
+.btn-row{ display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* ---------------------------------------------------------------------- */
+/* Sliders (simulator)                                                    */
+/* ---------------------------------------------------------------------- */
+.slider-row{ margin-bottom: 18px; }
+.slider-row__top{
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.slider-row__name{ color: var(--mist); font-weight: 500; }
+.slider-row__value{ font-family: var(--font-mono); font-weight: 700; color: var(--amber); }
+input[type="range"]{
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--steel);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb{
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--amber);
+  cursor: pointer;
+  border: 2px solid var(--carbon);
+  box-shadow: 0 0 0 1px var(--amber);
+}
+input[type="range"]::-moz-range-thumb{
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--amber);
+  cursor: pointer;
+  border: 2px solid var(--carbon);
+}
+
+select{
+  font-family: var(--font-mono);
+  background: var(--panel-raised);
+  color: var(--paper);
+  border: 1px solid var(--steel-light);
+  border-radius: 3px;
+  padding: 9px 12px;
+  font-size: 13px;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Misc                                                                   */
+/* ---------------------------------------------------------------------- */
+.muted{ color: var(--mist-dim); font-size: 12px; }
+.chart-wrap{ height: 220px; }
+.log-list{ list-style: none; margin: 0; padding: 0; font-size: 12px; }
+.log-list li{
+  padding: 8px 0;
+  border-bottom: 1px dashed rgba(255,255,255,0.06);
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--mist);
+}
+.log-list li:last-child{ border-bottom: none; }
+.log-list .log-action{ color: var(--paper); font-weight: 500; }
+
+.toast{
+  position: fixed;
+  bottom: 24px; right: 24px;
+  background: var(--panel-raised);
+  border: 1px solid var(--amber-dim);
+  color: var(--paper);
+  padding: 12px 18px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: all .25s ease;
+  pointer-events: none;
+  z-index: 60;
+}
+.toast.show{ opacity: 1; transform: translateY(0); }
