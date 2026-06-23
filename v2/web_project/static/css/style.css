@@ -1,21 +1,21 @@
 /* ===========================================================================
    PANOPTES — design tokens
    Direction: an industrial telemetry / SCADA control-room panel, not a SaaS
-   dashboard. Dark carbon base, amber instrumentation accent, monospace
+   dashboard. Black carbon base, cyan instrumentation accent, monospace
    numerals for anything that is a live reading (mirrors how real plant HMI
    screens differentiate "data" typography from "label" typography).
 =========================================================================== */
 :root{
-  --carbon: #0b0d10;
-  --panel: #12161b;
-  --panel-raised: #161b21;
-  --steel: #232b33;
-  --steel-light: #313c46;
+  --carbon: #030608;
+  --panel: #080d10;
+  --panel-raised: #0d1418;
+  --steel: #15242b;
+  --steel-light: #1f3a42;
   --mist: #8a96a3;
   --mist-dim: #5b6570;
   --paper: #e7ebee;
-  --amber: #ffb627;
-  --amber-dim: #8a6418;
+  --cyan: #00e5ff;
+  --cyan-dim: #00798a;
   --green: #3ddc84;
   --yellow: #f5c542;
   --orange: #ff8c42;
@@ -35,7 +35,7 @@ html, body{
   color: var(--paper);
   font-family: var(--font-body);
   background-image:
-    radial-gradient(circle at 15% 0%, rgba(255,182,39,0.05), transparent 40%),
+    radial-gradient(circle at 15% 0%, rgba(0,229,255,0.08), transparent 40%),
     repeating-linear-gradient(transparent, transparent 31px, rgba(255,255,255,0.012) 32px);
 }
 
@@ -62,7 +62,7 @@ a{ color: inherit; }
   gap: 10px;
   font-family: var(--font-display);
 }
-.topbar__mark{ color: var(--amber); font-size: 18px; }
+.topbar__mark{ color: var(--cyan); font-size: 18px; }
 .topbar__title{
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -88,9 +88,9 @@ a{ color: inherit; }
 }
 .topbar__nav a:hover{ color: var(--paper); border-color: var(--steel); }
 .topbar__nav a.is-active{
-  color: var(--amber);
-  background: rgba(255,182,39,0.08);
-  border-color: var(--amber-dim);
+  color: var(--cyan);
+  background: rgba(0,229,255,0.08);
+  border-color: var(--cyan-dim);
 }
 .topbar__status{
   font-family: var(--font-mono);
@@ -148,16 +148,16 @@ a{ color: inherit; }
   position: absolute;
   top: -1px; left: -1px;
   width: 10px; height: 10px;
-  border-top: 2px solid var(--amber-dim);
-  border-left: 2px solid var(--amber-dim);
+  border-top: 2px solid var(--cyan-dim);
+  border-left: 2px solid var(--cyan-dim);
 }
 .panel::after{
   content: "";
   position: absolute;
   bottom: -1px; right: -1px;
   width: 10px; height: 10px;
-  border-bottom: 2px solid var(--amber-dim);
-  border-right: 2px solid var(--amber-dim);
+  border-bottom: 2px solid var(--cyan-dim);
+  border-right: 2px solid var(--cyan-dim);
 }
 
 .panel__header{
@@ -172,7 +172,7 @@ a{ color: inherit; }
   font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.12em;
-  color: var(--amber);
+  color: var(--cyan);
   text-transform: uppercase;
 }
 .panel__title{
@@ -263,7 +263,7 @@ a{ color: inherit; }
 }
 .sensor-card__bar-fill{
   height: 100%;
-  background: var(--amber);
+  background: var(--cyan);
   transition: width .4s ease;
 }
 
@@ -312,14 +312,14 @@ a{ color: inherit; }
   cursor: pointer;
   transition: all .15s ease;
 }
-.btn:hover{ border-color: var(--amber); color: var(--amber); }
+.btn:hover{ border-color: var(--cyan); color: var(--cyan); }
 .btn:active{ transform: translateY(1px); }
 .btn--primary{
-  background: var(--amber);
+  background: var(--cyan);
   color: var(--carbon);
-  border-color: var(--amber);
+  border-color: var(--cyan);
 }
-.btn--primary:hover{ background: #ffc657; color: var(--carbon); }
+.btn--primary:hover{ background: #66f2ff; color: var(--carbon); }
 .btn--danger{ border-color: var(--red); color: var(--red); }
 .btn--danger:hover{ background: rgba(255,77,77,0.1); }
 .btn--ghost{ background: transparent; }
@@ -337,7 +337,7 @@ a{ color: inherit; }
   margin-bottom: 8px;
 }
 .slider-row__name{ color: var(--mist); font-weight: 500; }
-.slider-row__value{ font-family: var(--font-mono); font-weight: 700; color: var(--amber); }
+.slider-row__value{ font-family: var(--font-mono); font-weight: 700; color: var(--cyan); }
 input[type="range"]{
   -webkit-appearance: none;
   width: 100%;
@@ -350,15 +350,15 @@ input[type="range"]::-webkit-slider-thumb{
   -webkit-appearance: none;
   width: 16px; height: 16px;
   border-radius: 50%;
-  background: var(--amber);
+  background: var(--cyan);
   cursor: pointer;
   border: 2px solid var(--carbon);
-  box-shadow: 0 0 0 1px var(--amber);
+  box-shadow: 0 0 0 1px var(--cyan);
 }
 input[type="range"]::-moz-range-thumb{
   width: 16px; height: 16px;
   border-radius: 50%;
-  background: var(--amber);
+  background: var(--cyan);
   cursor: pointer;
   border: 2px solid var(--carbon);
 }
@@ -394,7 +394,7 @@ select{
   position: fixed;
   bottom: 24px; right: 24px;
   background: var(--panel-raised);
-  border: 1px solid var(--amber-dim);
+  border: 1px solid var(--cyan-dim);
   color: var(--paper);
   padding: 12px 18px;
   border-radius: 4px;
