@@ -1,0 +1,58 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+  body {
+    @apply bg-gray-950 text-gray-100 font-sans antialiased;
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .card { @apply bg-gray-900 border border-gray-800 rounded-xl p-5; }
+  .card-sm { @apply bg-gray-900 border border-gray-800 rounded-lg p-4; }
+  .btn-primary { @apply bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2 rounded-lg transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed; }
+  .btn-secondary { @apply bg-gray-800 hover:bg-gray-700 text-gray-200 font-medium px-4 py-2 rounded-lg transition-colors duration-150; }
+  .btn-danger { @apply bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-lg transition-colors duration-150; }
+  .input { @apply w-full bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder-gray-500 text-sm; }
+  .select { @apply w-full bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm; }
+  .label { @apply block text-sm font-medium text-gray-400 mb-1; }
+  .badge-green  { @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-900/50 text-green-400 border border-green-800; }
+  .badge-yellow { @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-900/50 text-yellow-400 border border-yellow-800; }
+  .badge-red    { @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-900/50 text-red-400 border border-red-800; }
+  .badge-blue   { @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-900/50 text-blue-400 border border-blue-800; }
+  .badge-gray   { @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-800 text-gray-400 border border-gray-700; }
+  .sidebar-link { @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors duration-150 text-sm font-medium; }
+  .sidebar-link.active { @apply bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30; }
+  .stat-label { @apply text-xs text-gray-500 font-medium uppercase tracking-wide; }
+  .stat-value { @apply text-2xl font-semibold text-white; }
+  .section-title { @apply text-base font-semibold text-white mb-4; }
+  .table-base { @apply w-full text-sm text-left; }
+  .table-base th { @apply px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide border-b border-gray-800; }
+  .table-base td { @apply px-4 py-3 border-b border-gray-800/50; }
+  .table-base tr:last-child td { @apply border-b-0; }
+  .table-base tr:hover td { @apply bg-gray-800/30; }
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+
+@keyframes emergency-flash {
+  0%, 100% { background-color: rgb(127 29 29 / 0.9); }
+  50%       { background-color: rgb(185 28 28 / 0.9); }
+}
+.emergency-banner { animation: emergency-flash 1s ease-in-out infinite; }
+
+@keyframes twin-belt-move { to { stroke-dashoffset: -28; } }
+.twin-belt { animation: twin-belt-move 1s linear infinite; }
+
+@keyframes twin-fan-spin { to { transform: rotate(360deg); } }
+.twin-fan { animation: twin-fan-spin 0.8s linear infinite; }
+
+@keyframes twin-pulse { 0%,100% { fill-opacity: 0.18; } 50% { fill-opacity: 0.4; } }
+.health-twin-pulse { animation: twin-pulse 1.2s ease-in-out infinite; }
