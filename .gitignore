@@ -1,0 +1,32 @@
+# ── dependencies ─────────────────────────────────────────────
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# ── secrets (never commit) ───────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── build output ─────────────────────────────────────────────
+dist/
+build/
+.vite/
+
+# ── huge raw datasets (200MB+ each — over GitHub's limit) ─────
+# Download separately: MetroPT-3 from the UCI/Zenodo link,
+# AI4I is small enough to stay in the repo.
+ML server/MetroPT3(AirCompressor).csv
+datasets/metropt+3+dataset/
+datasets/metropt+3+dataset.zip
+
+# ── regenerable cached arrays (rebuild: rul_pipeline/01_build_dataset.py)
+ML server/rul_pipeline/artifacts/*.npy
+
+# ── OS / editor noise ────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.log
+.gitignore.txt

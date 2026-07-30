@@ -1,0 +1,57 @@
+==============================================================
+04 — THE MACHINE LEARNING, HONESTLY EXPLAINED
+==============================================================
+
+There are three models plus one deliberate non-model. Each
+answers a different question.
+
+"IS SOMETHING WRONG RIGHT NOW?"  — anomaly detector
+  Studies weeks of HEALTHY behaviour, then scores how weird the
+  current readings look (0–100). Needs zero failure examples —
+  which matters, because new machines have no failure history.
+  THE PROJECT'S HEADLINE RESULT: trained only on healthy data
+  from a real metro air compressor (MetroPT-3), it caught a
+  real oil leak — a failure type it had NEVER seen — about 70
+  minutes after it started, ~51 hours before the repair was
+  finished. AUC 0.906, false alarms 1.3% of healthy minutes.
+  Same technique runs on simulated machines from their own DB
+  history ("Train on history" on the machine page).
+
+"WILL IT FAIL SOON?"  — failure classifier
+  For datasets WITH a failure column (AI4I, or your exported
+  CSVs). A RandomForest — hundreds of decision trees voting —
+  learns which sensor patterns precede failure and outputs a
+  risk %. Also shows which sensors matter (feature importance).
+  Evaluated with a CHRONOLOGICAL split (train on the past, test
+  on the future) — random splits leak the future and inflate
+  scores; when we fixed this, F1 dropped from 0.72 to 0.57 and
+  the lower number is the honest one (AUC ~0.97).
+
+"HOW LONG UNTIL IT FAILS?"  — RUL with uncertainty
+  Predicts days-until-failure as a RANGE ("8–15 days"), never a
+  single number. Three quantile models (P10/P50/P90) plus
+  conformal calibration; the truth lands inside the 80% band
+  78% of the time on unseen failures. With only two training
+  failures, pretending to know "12.3 days" would be lying —
+  the calibrated range is the honest version.
+
+"DAYS LEFT" ON SIMULATED PARTS  — deliberately NOT ML
+  Trend extrapolation: health margin (current health minus the
+  20% service threshold) divided by how fast health is falling
+  right now. Wear speeds up with machine age and jumps when
+  sensors go warning/critical. We removed a neural net that
+  used to do this — it trained on labels made from our own
+  formula (circular reasoning dressed as ML). An estimate you
+  can explain in one sentence beats a black box you can't
+  defend.
+
+THE ONE RULE
+  Numbers from real data are the proof; numbers from simulated
+  machines demonstrate the workflow. Never mix the two claims.
+
+WHERE "PREDICTIVE" LIVES (the when)
+  - Countdown: RUL days / days-left per component
+  - Lead time: alarm date vs repair date on real data (51 h)
+  - Risk %: probability of failure within a defined horizon —
+    the time is baked into the question, not the axis
+==============================================================

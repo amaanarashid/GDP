@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}AGV Predictive Maintenance{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+{% block head %}{% endblock %}
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar__brand">
+    <span class="topbar__mark">◆</span>
+    <span class="topbar__title">PANOPTES<span class="topbar__title-sub">{% block topbar_subtitle %}  / predictive maintenance{% endblock %}</span></span>
+  </div>
+  {% block topbar_status %}
+  <div class="topbar__status">
+    <span class="dot dot--live"></span> LIVE · POLL 1.5s
+  </div>
+  {% endblock %}
+</header>
+<main class="page">
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>

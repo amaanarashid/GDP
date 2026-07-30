@@ -1,0 +1,179 @@
+==============================================================
+06 — VIVA PREP: DEFENDING THE ML MODELS
+==============================================================
+
+THE ONE-SENTENCE PITCH
+----------------------
+"Trained only on healthy data, our detector caught a real
+oil-leak failure it had never seen 51 hours before the repair,
+with a 1.3% false-alarm rate — evaluated on a strict temporal
+hold-out of a real metro compressor."
+
+
+THE THREE MODELS AND WHY
+------------------------
+
+1) RandomForest — Dataset Lab classifier (/train, /predict)
+   Why: our datasets are small tabular data (AI4I = 10k rows, 5
+   sensors). On tabular data this size, tree ensembles match or
+   beat deep learning — Grinsztajn et al. 2022, "Why do
+   tree-based models still outperform deep learning on tabular
+   data".
+   - Handles class imbalance via class weighting (failures are
+     under 4% of rows)
+   - predict_proba gives the risk % shown in the UI
+   - Feature importance = explainable to a maintenance engineer
+   - No scaling/tuning fragility — users drop in ARBITRARY
+     datasets
+   - An LSTM would overfit ~300 failure examples and give
+     nothing interpretable
+
+2) IsolationForest — failure detector (THE HEADLINE RESULT)
+   Why: the real constraint is labels. A new machine has no
+   failure history, and MetroPT-3 has only TWO failure events
+   before our test window — too few for supervised learning.
+   So we learn "normal" instead.
+   - Zero labels, trains in seconds
+   - Assumes no particular failure signature — exactly why it
+     caught an OIL LEAK, a type absent from training
+   - We tested the supervised alternative on the same window:
+     AUC ~0.5 (random). The unsupervised detector: 0.91.
+     THE DATA DECIDED, NOT US. (Strongest viva answer — we
+     tried the alternative and say so.)
+   - Features: 2-hour rolling duty cycles of 8 signals. An air
+     leak makes the compressor run more often — that shows in
+     multi-hour aggregates, not 10-minute windows (we tested
+     10-min windows first: no signal).
+
+3) HistGradientBoosting quantile regression + CQR — RUL
+   Why: two training failures means point RUL can't be trusted,
+   so we output DISTRIBUTIONS, not points.
+   - P10/P50/P90 models + Conformalized Quantile Regression
+     (Romano et al. 2019), calibrated on a temporal hold-out
+   - 78% coverage vs 80% target on unseen failures — honest
+     uncertainty instead of false precision
+   - UI shows "8–15 days", never "12.3 days"
+
+
+THE UNIFYING THEME (if pushed on "why not deep learning")
+---------------------------------------------------------
+"We matched model complexity to data volume. Deep models need
+thousands of failure examples; industrial PdM datasets have
+handfuls. Our contribution isn't a fancy architecture — it's a
+rigorous evaluation protocol: temporal splits, no leakage,
+unseen failure types, false-alarm rates reported."
+
+
+LIKELY FOLLOW-UPS AND ANSWERS
+-----------------------------
+Q: Why not XGBoost?
+A: HistGradientBoosting is the same algorithm family,
+   sklearn-native, one fewer dependency.
+
+Q: Why not an autoencoder for anomaly detection?
+A: Tried-and-true baseline first. With 8 features and one
+   machine, an autoencoder adds parameters without adding
+   signal. Valid future work.
+
+Q: How did you pick hyperparameters?
+A: Deliberately near-default to avoid overfitting the tiny
+   test set. Tuning on 2 test failures would be leakage by
+   another name.
+
+Q: Random split vs chronological split?
+A: Random splits on time-series leak the future and inflate
+   metrics. Switching AI4I to chronological dropped F1 from
+   0.72 to 0.57 — the lower number is the defensible one.
+   AUC stays ~0.97.
+
+Q: Isn't 4.4 days MAE for RUL bad?
+A: On the full window a naive "always predict max" scores
+   better MAE because machines are mostly healthy. MAE alone is
+   the wrong lens: near failure (last 72h) the model beats
+   naive baselines, and the calibrated interval is the useful
+   output. We say this openly. The detector is the operational
+   early-warning; RUL is the planning aid.
+
+Q: Only 2 test failures — enough to claim anything?
+A: It's ALL the real failures in the test period, one of a type
+   never seen in training — the hardest generalization test.
+   AUC is over ~54k test minutes, plus the false-alarm rate.
+
+
+WHAT'S REAL vs WHAT'S ESTIMATED (volunteer this first)
+------------------------------------------------------
+REAL, VALIDATED ML:
+  - MetroPT-3 detector: AUC 0.91, unseen real failures
+  - AI4I classifier: chronological split, honest metrics
+  - MetroPT-3 machine-level RUL: defensible BECAUSE we report
+    weak MAE and a calibrated interval
+
+ENGINEERING ESTIMATES (stated openly in the app):
+  1. MetroPT per-COMPONENT RUL = the machine-level prediction
+     applied to each component ("component granularity needs
+     per-component failure data, which MetroPT-3 doesn't have").
+  2. The risk% -> days bands in /predict are an indicative
+     mapping, not learned.
+  3. Simulated components' "days left" = degradation-trend
+     extrapolation (trendRul.js): health margin / measured
+     decline rate. We REMOVED a neural net that trained on
+     labels from our own formula — circular. Say proudly:
+     "we deliberately do NOT use ML where it can't be
+     validated."
+
+Why volunteering wins: examiners probe until they find the soft
+spot. Name it first, with the correct engineering term, and the
+weakness becomes evidence of rigor.
+
+
+DATASET EXPORT (Simulate -> Export CSV)
+---------------------------------------
+Labels derived from operational events: failure = critical
+alert within the next N minutes (5/10/30 selectable).
+  - A real plant has no ground-truth flags — only sensors plus
+    an event log. This is the DEPLOYABLE pipeline.
+  - The horizon N is a business decision: the warning time the
+    maintenance team needs to act.
+  - Label noise mirrors real work-order data.
+  - Sanity check if asked: we can compare derived labels to the
+    simulator's injection ground truth — a luxury real plants
+    don't have, which is why the pipeline doesn't depend on it.
+Caveat: models trained on simulated data validate the WORKFLOW;
+model validation remains MetroPT-3 and AI4I.
+
+
+KEY NUMBERS (memorize)
+----------------------
+Detector: AUC 0.906 · oil leak flagged +70 min = ~51 h before
+  repair (type not in training) · air leak +45 min · false
+  alarms 1.3% · trained on healthy Feb–May 2020 only, no labels
+RUL: P50 MAE 4.37 d (cap 14 d) · 80% interval coverage 78% ·
+  train F1+F2 (air leaks), test F3 (oil leak) + F4
+AI4I: F1 0.571 · ROC-AUC 0.973 · chronological by UDI, last 20%
+  (random-split F1 was 0.72 — inflated by leakage)
+Datasets: MetroPT-3 = real metro compressor, Porto 2020, ~10s
+  cadence, 4 documented failures · AI4I = 10k rows, 3.4% failure
+
+
+THE PROJECT STORY ARC (report intro)
+------------------------------------
+Started with simulation to prove the pipeline works -> realized
+simulated data can't teach failure prediction -> added real-data
+upload with supervised learning -> kept anomaly detection for
+machines without failure history -> validated on real datasets
+with leakage-safe evaluation. The lecturer's "use real data"
+feedback becomes a chapter, not a criticism.
+
+
+REFERENCES TO CITE
+------------------
+- Grinsztajn, Oyallon, Varoquaux (2022). Why do tree-based
+  models still outperform deep learning on typical tabular
+  data? NeurIPS.
+- Romano, Patterson, Candès (2019). Conformalized Quantile
+  Regression. NeurIPS.
+- Liu, Ting, Zhou (2008). Isolation Forest. ICDM.
+- Veloso et al. (2022). The MetroPT dataset for predictive
+  maintenance. Scientific Data.
+- AI4I 2020 Predictive Maintenance Dataset, UCI ML Repository.
+==============================================================

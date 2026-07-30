@@ -1,0 +1,44 @@
+==============================================================
+02 — SETUP: STARTING EVERYTHING UP
+==============================================================
+
+You need two things running, in two terminals.
+
+A) THE ML SERVER (the Python brain) — start this FIRST
+   cd "ML server\ml-server"
+   pip install -r requirements.txt        (first time only)
+   python -m uvicorn main:app --reload --port 8000
+   Leave it open. You should see:
+   "Uvicorn running on http://127.0.0.1:8000"
+
+B) THE WEB APP
+   cd v4
+   npm install                            (first time, and after
+                                           any package change)
+   npm run dev
+   Open http://localhost:5173
+
+LOGINS
+   Admin:      admin@agv.demo  /  Admin@1234
+   Technician: tech@agv.demo   /  Tech@1234
+   (Or click the "Demo" buttons on the login page.)
+
+DATABASE (one-time, already done if the app works)
+   The SQL in v4/data/ is run manually in the Supabase SQL
+   Editor — schema.sql first, then the migration files in
+   order. Full steps: v4/data/SETUP.md. The keys go into
+   v4/.env (copy from .env.example).
+
+TRAINING THE REAL-DATA MODELS (one-time, already done)
+   cd "ML server\rul_pipeline"
+   python 01_build_dataset.py     (needs the MetroPT-3 CSV)
+   python 02_train_baselines.py
+   python 03_train_quantile.py
+   python 04_train_detector.py
+   Results land in artifacts/ and the ML server picks them up.
+
+NOTES
+   - The app works with the ML server off — ML pages just say
+     "server offline" until you start it.
+   - Start the ML server BEFORE a demo, always.
+==============================================================

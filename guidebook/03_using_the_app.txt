@@ -1,0 +1,63 @@
+==============================================================
+03 — USING THE APP: EVERY PAGE, IN EASY WORDS
+==============================================================
+
+DASHBOARD
+  Your home screen. Every machine as a card with a rotating 3D
+  model, health %, and status. Recent alerts on the right —
+  click one to jump to that machine. Click any card to open the
+  machine.
+
+ML MODEL  (the star of the show)
+  Opens with a big drop zone. Drag any labelled CSV onto it
+  (datasets/ai4i2020.csv is perfect). The app reads the file,
+  finds the sensors and failure column BY ITSELF, trains a
+  model live, and shows:
+    - animated score tiles (precision, recall, F1, AUC)
+    - "what drives failure" importance bars
+    - a risk timeline over held-out test rows — red dots are
+      real failures; a good model puts them on the peaks
+    - a ROC curve with a plain-English explainer
+  All of that is about YOUR file only. Below the lab there's a
+  separate card: "MetroPT-3 benchmark — click to view" — the
+  models proven on real metro-compressor data. It's behind a
+  click on purpose, so it's never mistaken for your upload.
+
+MACHINE DETAIL  (click any machine)
+  - 3D digital twin: drag to rotate, scroll to zoom. Parts are
+    painted by live health (green/yellow/red), failing parts
+    pulse red, fans spin and the press ram moves while running.
+  - Maintenance priority: which part to service first, with
+    "days left" per part. For simulated machines this is trend
+    extrapolation, not ML (see 04) — it shrinks the moment a
+    fault develops.
+  - Live sensors, colored by severity.
+  - ML analysis: "Train on history" then "Analyze with ML" —
+    the machine's own anomaly detector (see 04).
+  - Prediction accuracy: the app grading its own homework —
+    stored predictions vs what actually happened.
+  - Complete maintenance: THE button. Restores health to 100%
+    and writes a record. Health never heals on its own — that's
+    deliberate; it's a maintenance app.
+
+SIMULATOR  (admin only)
+  - Play/Pause: streams readings every 2 seconds; parts wear
+    down over time like real machines.
+  - Fault panel: inject a fault, watch sensors climb, alerts
+    fire, health drop. Clear it or fix with maintenance.
+  - Reset: factory-fresh machine.
+  - Generate 24h: instant healthy history. WARNING: it ERASES
+    existing readings — use BEFORE injecting faults, never after.
+  - Export CSV + horizon dropdown (5/10/30 min): downloads the
+    machine's history as a labelled dataset. A row is marked
+    "failure" if a critical alert happened within the next N
+    minutes. The horizon is the warning time you want the model
+    to learn — a business decision, not a technical one.
+
+ADMIN  (admin only)
+  Add machines, edit, print QR codes (technicians scan them to
+  jump straight to a machine), and two removals:
+    Archive (box icon)  = hide, restorable
+    Delete (trash icon) = gone forever with all data, asks for
+                          confirmation
+==============================================================

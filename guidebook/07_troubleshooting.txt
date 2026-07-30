@@ -1,0 +1,51 @@
+==============================================================
+07 — TROUBLESHOOTING: WHEN SOMETHING LOOKS BROKEN
+==============================================================
+
+"ML server is offline"
+  Start it (guidebook 02, part A), then Retry or refresh.
+
+Charts blank / page half-styled
+  OneDrive is still syncing files. Wait for the tray icon to
+  say "up to date", then hard refresh (Ctrl+Shift+R). Still
+  stuck? Restart npm run dev.
+
+Vite: "[PARSE_ERROR] Unexpected token" naming a file
+  OneDrive synced the file halfway. Usually fixes itself in a
+  minute; if not, the file needs re-saving.
+
+Vite: "Failed to resolve import ..." (three, etc.)
+  A package is missing. Run  npm install  in v4/, restart dev.
+
+Vite: "memory allocation failed" during bundling
+  Corrupted dependency cache. Stop the server, then:
+    Remove-Item -Recurse -Force node_modules
+    Remove-Item -Force package-lock.json
+    npm install
+  If files are "in use", pause OneDrive first. Root cause:
+  node_modules living inside a OneDrive folder — moving the
+  project out of OneDrive ends this whole class of problems.
+
+"No trained model for this machine"
+  Machine page -> "Train on history" first, then Analyze. Only
+  train when the history is HEALTHY (Reset + Generate 24h).
+
+Export says "stream longer before exporting"
+  Fewer than 50 usable rows. Generate 24h and/or stream more.
+
+A machine faults instantly with no injection
+  Old data from before a bug fix. Reset the machine once.
+
+3D twin doesn't appear
+  npm install (three is a dependency), restart dev. On very old
+  GPUs/browsers without WebGL it silently falls back — the 2D
+  twin still works.
+
+Trained a model but scores look absurdly good
+  Check the split badge: "random-stratified (chronological was
+  degenerate)" means all failures sat at one end of the data —
+  stream some healthy time after the last fault and re-export.
+
+Everything is weird after lots of changes
+  Restart both terminals. Genuinely fixes 90% of it.
+==============================================================

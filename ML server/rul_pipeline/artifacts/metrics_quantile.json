@@ -1,0 +1,11 @@
+{
+  "P50_MAE_h": 104.94981891934565,
+  "P50_RMSE_h": 134.90069969663188,
+  "interval_coverage": 0.7784297855119385,
+  "interval_width_mean_h": 317.39199101612587,
+  "conformal_qhat_lo_h": 197.53157325975732,
+  "conformal_qhat_hi_h": 0.0,
+  "alpha": 0.2,
+  "n_test": 9884,
+  "split": "temporal (train F1+F2, test F3+F4); asymmetric CQR calibrated on last 20% of train"
+}

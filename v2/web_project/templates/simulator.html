@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Machine Simulator — PANOPTES{% endblock %}
+{% block topbar_subtitle %}  / machine simulator{% endblock %}
+{% block topbar_status %}
+<div class="topbar__status">
+  <span class="dot dot--live"></span> SIM · ACTIVE
+</div>
+{% endblock %}
+{% block content %}
+
+<section class="panel">
+  <div class="panel__header">
+    <div>
+      <div class="panel__eyebrow">Simulator</div>
+      <h2 class="panel__title">Machine Selection</h2>
+    </div>
+  </div>
+  <div class="btn-row" style="align-items:center;">
+    <select id="machineSelect"></select>
+    <span class="muted" id="simStatus">Status: Idle</span>
+  </div>
+</section>
+
+<div class="grid grid--2">
+  <section class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__eyebrow">Controls</div>
+        <h2 class="panel__title">Sensor Controls</h2>
+      </div>
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-row__top">
+        <span class="slider-row__name">Temperature</span>
+        <span class="slider-row__value"><span id="val-temperature">25</span> °C</span>
+      </div>
+      <input type="range" id="slider-temperature" min="{{ sensor_ranges.temperature[0] }}" max="{{ sensor_ranges.temperature[1] }}" step="1" value="25">
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-row__top">
+        <span class="slider-row__name">Vibration</span>
+        <span class="slider-row__value"><span id="val-vibration">0.10</span> mm/s</span>
+      </div>
+      <input type="range" id="slider-vibration" min="{{ sensor_ranges.vibration[0] }}" max="{{ sensor_ranges.vibration[1] }}" step="0.01" value="0.1">
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-row__top">
+        <span class="slider-row__name">Current</span>
+        <span class="slider-row__value"><span id="val-current">4.0</span> A</span>
+      </div>
+      <input type="range" id="slider-current" min="{{ sensor_ranges.current[0] }}" max="{{ sensor_ranges.current[1] }}" step="0.1" value="4">
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-row__top">
+        <span class="slider-row__name">Operating Hours</span>
+        <span class="slider-row__value"><span id="val-operating_hours">0</span> hrs</span>
+      </div>
+      <input type="range" id="slider-operating_hours" min="{{ sensor_ranges.operating_hours[0] }}" max="{{ sensor_ranges.operating_hours[1] }}" step="10" value="0">
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn--primary" id="updateBtn">Update Values</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel__header">
+      <div>
+        <div class="panel__eyebrow">Controls</div>
+        <h2 class="panel__title">Simulation &amp; Fault Injection</h2>
+      </div>
+    </div>
+
+    <div class="muted" style="margin-bottom:10px;">Auto Simulation</div>
+    <div class="btn-row" style="margin-bottom:20px;">
+      <button class="btn" id="startAutoBtn">▶ Start Auto Simulation</button>
+      <button class="btn" id="stopAutoBtn">■ Stop Auto Simulation</button>
+    </div>
+
+    <div class="muted" style="margin-bottom:10px;">Fault Injection</div>
+    <div class="btn-row" style="margin-bottom:20px;">
+      <button class="btn btn--danger" id="bearingFaultBtn">Inject Bearing Fault</button>
+      <button class="btn btn--danger" id="gearboxFaultBtn">Inject Gearbox Fault</button>
+      <button class="btn btn--danger" id="motorFaultBtn">Inject Motor Fault</button>
+    </div>
+
+    <div class="muted" style="margin-bottom:10px;">Maintenance</div>
+    <div class="btn-row">
+      <button class="btn" id="resetBtn">↺ Reset Machine</button>
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="{{ url_for('static', filename='js/simulator.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,270 @@
+==============================================================
+09 — REVISION CRAM SHEET  (presentation in 3 days)
+Read this whole file once a day. Say the bold bits out loud.
+==============================================================
+
+
+==============================================================
+THE 3-DAY PLAN
+==============================================================
+
+DAY 1 — MAKE IT RUN, THEN LEARN THE STORY
+  [ ] npm install in v4/ (three added, tensorflow removed)
+  [ ] Start ML server, start web app, log in
+  [ ] Run the demo script (05_demo_script.txt) start to finish
+      ONCE. Fix anything broken TODAY, not on demo day.
+  [ ] Read section "THE STORY IN 60 SECONDS" below 3 times
+  [ ] Memorise the 6 numbers in "NUMBERS YOU MUST KNOW"
+
+DAY 2 — REHEARSE OUT LOUD
+  [ ] Run the demo twice, speaking every word aloud
+  [ ] Time it. Cut anything that doesn't earn its seconds
+  [ ] Read the Q&A section, answer each out loud WITHOUT looking
+  [ ] Do one run in front of a friend who knows nothing about it.
+      Wherever they get confused, the examiner will too.
+  [ ] Screen-record one clean run as backup (if the live demo
+      dies on the day, you still have proof)
+
+DAY 3 — POLISH AND PROTECT
+  [ ] One full dry run in the morning
+  [ ] Charge laptop, test the projector/HDMI, close Slack/Teams
+  [ ] Put ai4i2020.csv and metropt3_trimmed.csv ON THE DESKTOP
+  [ ] Make sure OneDrive says "up to date", then PAUSE OneDrive
+      for the day (stops mid-demo file syncing)
+  [ ] Start the ML server BEFORE you walk in
+  [ ] Re-read "IF SOMETHING GOES WRONG" below
+  [ ] Sleep. Do not change code on day 3.
+
+
+==============================================================
+THE STORY IN 60 SECONDS  (learn this almost word for word)
+==============================================================
+
+"Machines break down. Fixing them after they break is expensive
+and unplanned; fixing them on a fixed calendar wastes money on
+parts that are still fine. Predictive maintenance uses sensor
+data to predict trouble early enough to plan the repair.
+
+We built a full predictive-maintenance platform: a web
+dashboard with 3D digital twins, a simulator that streams live
+sensor data, and three machine-learning paths served by a
+Python API.
+
+We started with simulated machines. Then we realised simulated
+data can't teach failure prediction — so we added real
+industrial datasets. Our headline result: trained only on
+HEALTHY data from a real metro air compressor, our detector
+caught a real oil leak it had never seen — a failure type
+absent from its training data — about 70 minutes after onset,
+roughly 51 hours before the repair was completed, with a 1.3%
+false-alarm rate and an AUC of 0.91.
+
+Throughout, we're explicit about which numbers are validated
+machine learning and which are engineering estimates."
+
+
+==============================================================
+NUMBERS YOU MUST KNOW  (6 of them — nothing else is required)
+==============================================================
+
+  1. AUC 0.906        detector, on unseen real failures
+  2. 51 hours         oil-leak warning before repair
+  3. 1.3%             false alarms (of healthy minutes)
+  4. ZERO labels      detector trained on healthy data only
+  5. F1 0.571 / AUC 0.973    AI4I classifier, chronological split
+                             (was 0.72 with a leaky random split)
+  6. MAE 4.37 days, 78% interval coverage    RUL, 80% target
+
+If you remember only two: 0.91 AUC and 51 hours.
+
+
+==============================================================
+WHAT TO SAY ON EACH SCREEN
+==============================================================
+
+DASHBOARD
+  "Fleet view. Each machine is a live 3D twin — parts are
+  coloured by real component health, and failing parts pulse
+  red. Alerts on the right are clickable and jump to the
+  machine."
+
+MACHINE DETAIL
+  "The 3D twin is driven by live database values — I can rotate
+  it. Maintenance priority ranks which part to service first.
+  ML analysis runs automatically every 30 seconds. Note the
+  'days left' figure — that is a transparent engineering
+  estimate, not ML, and I'll explain why in a moment."
+
+SIMULATOR
+  "This stands in for real sensors. It streams readings every
+  two seconds and wears components down realistically — health
+  never heals by itself; only completing maintenance restores
+  it, because that's what a maintenance app should model.
+  I can inject specific faults to demonstrate detection."
+
+ML MODEL PAGE — DATASET LAB
+  "Drop in any labelled sensor dataset. The system finds the
+  sensor columns and the failure column by itself, trains a
+  classifier live, and reports honest metrics — using a
+  chronological split, not a random one, because random splits
+  on time-series data leak the future."
+  [Then point at the risk timeline] "Red dots are actual
+  failures. A good model puts them on the peaks."
+
+ML MODEL PAGE — METROPT BENCHMARK (click to reveal)
+  "This is our validation on real industrial data — a metro air
+  compressor with four documented failures. We trained on the
+  first two and tested on the last two. Watch the anomaly score
+  cross the alarm threshold INSIDE the real oil-leak window —
+  51 hours before the repair. And it had never seen an oil leak;
+  both training failures were air leaks."
+
+
+==============================================================
+THE THREE ML PATHS  (know which is which — examiners probe this)
+==============================================================
+
+  1. ANOMALY DETECTION — Isolation Forest, UNSUPERVISED
+     Q it answers: "is something abnormal right now?"
+     Needs NO failure labels. Learns "normal", flags deviation.
+     Runs on real data (the headline result) AND on simulated
+     machines from their own database history.
+     One-liner: "hundreds of random trees; unusual readings are
+     isolated in fewer splits."
+
+  2. FAILURE CLASSIFIER — RandomForest, SUPERVISED
+     Q it answers: "will this fail?" -> risk %
+     Needs a labelled failure column (AI4I, or our exported
+     CSVs). Gives feature importance, so it's explainable.
+     Chronological split. Class weighting for imbalance.
+
+  3. RUL — quantile regression + conformal calibration
+     Q it answers: "how long left?" -> a RANGE, e.g. "8-15 days"
+     Three models (P10/P50/P90) + CQR calibration.
+     A range, not a point, because with two training failures a
+     precise number would be dishonest.
+
+  PLUS (not ML, say so proudly):
+  4. TREND EXTRAPOLATION for simulated components
+     days left = (health - 20% threshold) / current decline rate
+     Standard industrial method. We deleted a neural net that
+     used to do this because it trained on labels made from our
+     own formula — circular reasoning dressed as ML.
+
+
+==============================================================
+LIKELY QUESTIONS — ANSWER THESE OUT LOUD
+==============================================================
+
+Q "Why not deep learning / an LSTM?"
+A "We matched model complexity to data volume. Deep models need
+   thousands of failure examples; industrial PdM datasets have
+   handfuls — ours had two. On small tabular data, tree
+   ensembles match or beat deep learning; that's documented in
+   Grinsztajn et al. 2022. An LSTM here would overfit and give
+   us nothing interpretable."
+
+Q "Why unsupervised for the main result?"
+A "Labels are the real constraint — a new machine has no failure
+   history. And we tested the alternative: a supervised model on
+   the same window scored AUC 0.5, random. The unsupervised
+   detector scored 0.91. The data decided, not us."
+   ^ THIS IS YOUR STRONGEST ANSWER. Use it.
+
+Q "Is your RUL accurate?"
+A "Machine-level RUL on real data has an MAE of 4.4 days, which
+   is weak — and that's exactly why we report a calibrated
+   80% interval instead of a single number. Near failure it
+   beats naive baselines. The detector is the operational
+   early-warning; RUL is the planning aid."
+
+Q "Only two test failures — is that enough?"
+A "It's all the real failures in the test period, and one is a
+   failure TYPE never seen in training — the hardest
+   generalisation test available. The AUC is computed over
+   roughly 54,000 test minutes, and we report the false-alarm
+   rate alongside it."
+
+Q "How do you know it works on simulated data?"
+A "We don't claim that it does. Simulated data demonstrates the
+   workflow — data capture, labelling, training, prediction.
+   Model validation comes from the real datasets. We keep those
+   two claims separate everywhere in the app."
+
+Q "Random vs chronological split?"
+A "Random splits on time-series data leak the future into
+   training and inflate the metrics. When we switched AI4I to a
+   chronological split, F1 dropped from 0.72 to 0.57. The lower
+   number is the honest, defensible one."
+
+Q "Could this work with real sensors?"
+A "Yes, at one seam. Real sensors would replace the simulator
+   at the write pipeline; everything downstream — ML, alerting,
+   validation — stays. Detection works within a week of healthy
+   data. Supervised prediction becomes possible once real
+   failures accumulate in the alarm log."
+
+Q "What are the limitations?"  <- ANSWER THIS EAGERLY
+A "Three. First, per-component RUL on MetroPT is the
+   machine-level prediction applied to each component, because
+   the dataset has no per-component failure data. Second, RUL
+   point-accuracy is weak with two training failures. Third,
+   there's no automated test suite and the browser writes
+   directly to the database — fine for a prototype,
+   not for deployment. We state these in the app itself."
+
+Q "What's novel here?"
+A "Not the algorithms — the evaluation protocol. Temporal
+   splits, unseen failure types, calibrated uncertainty, and
+   false-alarm rates reported alongside detections. Most
+   student PdM projects report an inflated accuracy from a
+   random split; we deliberately don't."
+
+
+==============================================================
+TRAPS — DO NOT SAY THESE
+==============================================================
+  X "Our model predicts failures with 97% accuracy"
+      -> that's AUC on one dataset; say AUC and the split
+  X "The neural network predicts remaining life"
+      -> there is no neural network any more; it's extrapolation
+  X "It works on any machine"
+      -> it works on any tabular dataset with a 0/1 failure
+         column; be precise
+  X "The simulated results prove the model works"
+      -> simulated results demonstrate the workflow only
+  X Do not call the anomaly score a "probability of failure" —
+      it's a deviation-from-normal score, 0-100
+
+
+==============================================================
+IF SOMETHING GOES WRONG ON THE DAY
+==============================================================
+  ML pages say "server offline"
+     -> the Python server isn't running. Start it. Keep talking
+        while it boots.
+  Charts blank
+     -> hard refresh (Ctrl+Shift+R).
+  A page throws an error
+     -> don't debug live. Say "let me show you this from the
+        recording" and use your screen recording. Move on.
+  Someone asks something you don't know
+     -> "I don't have data on that — my honest answer is we
+        didn't test it." That scores better than a guess.
+        You have earned credibility by being honest; spend it.
+
+  GOLDEN RULE: never open with the simulator. Lead with real
+  data. Close with the simulator framed as "the harness we
+  built before real data was available."
+
+
+==============================================================
+THE LAST THING TO SAY (closing line)
+==============================================================
+"To summarise: this is a working predictive-maintenance platform
+whose core result is validated on real industrial data, with a
+strict temporal evaluation, calibrated uncertainty, and an
+explicit boundary between what we've validated and what we've
+demonstrated. The next step would be connecting real sensors —
+which the architecture is designed to accept at a single seam."
+==============================================================

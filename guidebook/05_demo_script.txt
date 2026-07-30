@@ -1,0 +1,59 @@
+==============================================================
+05 — THE DEMO SCRIPT (rehearse this twice before the day)
+==============================================================
+
+BEFORE ANYONE ARRIVES
+  1. Start the ML server (guidebook 02, part A).
+  2. Start the web app, log in as admin.
+  3. Have datasets/ai4i2020.csv and metropt3_trimmed.csv on the
+     desktop, ready to drag.
+  4. Check OneDrive says "up to date". Do one silent dry run.
+
+ACT 1 — THE LIVE FAULT (3 minutes, the crowd-pleaser)
+  1. Simulator: pick a machine, Reset, Generate 24h, Play.
+  2. Machine page: ML analysis -> Train on history (healthy!)
+     -> Analyze -> score ~0, "normal".
+  3. Simulator: inject a fault. Wait ~30 s.
+  4. Machine page: watch the 3D twin part turn red and pulse,
+     days-left collapse, alerts fire.
+  5. Analyze again -> score jumps, tier critical.
+     Say: "the detector learned this machine's normal from its
+     own history, and just caught the fault — no labels."
+  6. Complete maintenance -> health restored, record written.
+
+ACT 2 — ANY DATASET, LIVE (the ML Model page)
+  7. Drop metropt3_trimmed.csv first. It stops: "no failure
+     label detected". Say: "this is real data's actual problem —
+     labels usually don't exist."
+  8. Point below: click "MetroPT-3 benchmark". Walk the
+     detection chart: "trained on healthy data only; the score
+     crosses the alarm line 70 minutes into a real oil leak —
+     51 hours before the repair. It had never seen an oil leak."
+  9. Drop ai4i2020.csv. Watch it detect sensors + label, train,
+     and show honest metrics, the risk timeline (red dots on
+     peaks), and the ROC curve.
+
+ACT 3 — THE FULL LOOP (if time allows)
+  10. Simulator: after 2-3 fault+maintenance cycles, Export CSV
+      (10 min horizon).
+  11. Drop that file into the Dataset Lab. Say: "the app
+      generated its own labelled dataset from operational
+      events — exactly how a real plant would — and trained on
+      it, end to end."
+
+CLOSING LINES THAT LAND
+  - "Simulated numbers demonstrate the workflow; real-data
+    numbers are the proof — and we're explicit about which is
+    which everywhere in the app."
+  - "Real sensors replace the simulator at one seam — the write
+    pipeline. Everything downstream stays."
+
+EXTRA TRICK (if asked about the horizon dropdown)
+  Export the same session at 5 and 30 minutes, train both:
+  the 30-min model warns earlier but false-alarms more. That
+  comparison IS the precision-vs-lead-time trade-off.
+
+ORDER RULE: never open with the simulator. Lead with real data,
+end with the simulator as "the harness we built before real
+data was available."
+==============================================================

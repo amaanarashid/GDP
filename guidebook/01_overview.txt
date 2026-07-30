@@ -1,0 +1,54 @@
+==============================================================
+01 — OVERVIEW: WHAT THIS APP IS AND HOW IT'S BUILT
+==============================================================
+
+WHAT IT DOES
+------------
+Predictive maintenance: instead of fixing machines after they
+break (expensive, unplanned) or on a fixed calendar (wasteful),
+the app watches sensor data and predicts trouble early enough
+to plan the fix.
+
+THE PARTS
+---------
+  Web app (v4/)            React + Vite + Tailwind. Only src/
+                           is live code.
+  Database (Supabase)      Postgres in the cloud. Stores
+                           machines, components, sensors,
+                           readings, alerts, predictions,
+                           maintenance logs. Realtime updates
+                           push straight to the browser.
+  ML server (ML server/    Python FastAPI. Trains and serves
+  ml-server/)              the machine learning models.
+  Training pipeline        Scripts 01-04 that build datasets
+  (ML server/rul_pipeline) and train the real-data models
+                           offline (MetroPT-3).
+
+THE DATA LOOP (the story of the whole project)
+----------------------------------------------
+  1. The Simulator streams sensor readings into the database.
+     Components wear down realistically over runtime — health
+     never heals by itself; only maintenance restores it.
+  2. Faults push sensors over thresholds -> critical alerts.
+  3. "Export CSV" turns that history into a LABELLED dataset
+     (failure = critical alert within a chosen horizon).
+  4. Drop the CSV into the Dataset Lab -> a classifier trains
+     on data the app itself generated.
+  5. Meanwhile, models trained on REAL data (MetroPT-3) serve
+     live predictions through the ML server.
+
+  When real sensors replace the simulator someday, they plug in
+  at exactly one seam — the write pipeline — and everything
+  downstream (ML, alerts, validation) stays the same.
+
+FILES WORTH KNOWING
+-------------------
+  v4/src/lib/simEngine.js     sensor physics + wear law
+  v4/src/lib/trendRul.js      days-left extrapolation
+  v4/src/lib/datasetExport.js labelled CSV export
+  v4/src/components/machine/Twin3D.jsx   3D digital twin
+  ML server/ml-server/main.py            all ML endpoints
+  ML server/rul_pipeline/01..04_*.py     offline training
+  datasets/ai4i2020.csv       demo dataset for drag-and-drop
+  v4/data/                    database SQL (run in Supabase)
+==============================================================

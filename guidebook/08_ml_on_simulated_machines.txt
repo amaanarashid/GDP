@@ -1,0 +1,188 @@
+==============================================================
+08 — HOW ML WORKS ON SIMULATED MACHINES
+==============================================================
+
+This document explains, end to end, what happens on a SIMULATED
+machine (conveyor, hydraulic press, air compressor) — from the
+sensor numbers being generated, to the ML verdict on the screen.
+Real-data models (MetroPT-3, AI4I) are covered in 04_the_ml.txt;
+this file is only about the simulated side.
+
+
+BIG PICTURE (one paragraph)
+---------------------------
+A simulated machine generates sensor readings into the database.
+Two different techniques then run on that data:
+  (A) An UNSUPERVISED anomaly detector — real machine learning
+      (Isolation Forest) — answers "is something abnormal right
+      now?"
+  (B) A degradation-trend calculation — NOT machine learning —
+      answers "how many days until this part needs service?"
+Both are shown on the machine page. Knowing which is which is
+important, because only (A) is ML.
+
+
+PART 0 — WHERE THE DATA COMES FROM
+----------------------------------
+The simulator (v4/src/hooks/useSimulator.js) runs a loop every 2
+seconds. On each tick it:
+  1. Computes the next value for each sensor (simEngine.js):
+     - normally, values wander around a healthy baseline
+     - if a fault is injected, values are pushed toward the
+       warning/critical thresholds
+  2. Wears components down a little (health only ever drops;
+     maintenance is the only thing that restores it)
+  3. Writes everything to Supabase: sensor_readings (the time
+     series), sensors (current values), components (health),
+     and raises alerts when a sensor goes critical
+So the database fills with exactly the kind of data a real PLC
+would produce: a stream of timestamped sensor values plus an
+event log of alerts.
+
+
+PART A — ANOMALY DETECTION  (this is the ML)
+--------------------------------------------
+Question answered: "Do the current readings look abnormal
+compared to how this machine normally behaves?"
+
+Why unsupervised (no labels):
+  Simulated healthy data contains no failure examples to learn
+  FROM. There is nothing labelled "this is a failure". So we
+  can't train a "failure vs healthy" classifier. Instead we
+  learn what NORMAL looks like and flag anything that deviates.
+  This is the exact same reasoning — and the same technique —
+  as the real-data detector that scored AUC 0.91 on MetroPT-3.
+
+The algorithm: Isolation Forest
+  Plain-English: it builds many random trees that try to
+  "isolate" each reading. Normal readings sit in dense regions
+  and take many splits to isolate; unusual readings get isolated
+  quickly. The quicker a point is isolated, the more anomalous
+  it is. No labels needed.
+
+Step 1 — TRAIN (manual, on purpose)
+  On the machine page, the technician clicks "Train on history".
+  The ML server (/train-anomaly in main.py):
+    - pulls the machine's recent sensor_readings from Supabase
+    - pivots them into a table: rows = time points,
+      columns = sensors
+    - scales the columns (StandardScaler)
+    - fits an IsolationForest on that healthy history
+    - records the score distribution so scores can be turned
+      into a 0–100 number later
+    - saves the model to disk, keyed by machine_id
+  WHY TRAINING IS MANUAL: the model must learn "normal" from
+  HEALTHY data. If you trained right after injecting a fault,
+  it would learn the fault as normal. A human confirms the
+  history is clean by clicking the button. (Good viva point.)
+
+Step 2 — DETECT (automatic)
+  The ML analysis panel now runs automatically: on page load and
+  every 30 seconds. It calls /detect with the machine's current
+  live sensor values. The server:
+    - loads that machine's saved model
+    - scores the current reading
+    - converts the raw score to 0–100 using how many standard
+      deviations below the training mean it sits
+    - returns a tier: normal / warning / critical
+  The panel shows the score, a colored bar, the tier, and a
+  "updated HH:MM:SS" timestamp.
+
+What you SEE in a demo:
+  Healthy machine  -> score near 0, "NORMAL", green
+  Inject a fault, wait ~30 s (or click Refresh now)
+                   -> score jumps, tier goes warning/critical
+  That is ML reading the database and catching the fault live.
+
+
+PART B — "DAYS LEFT" PER COMPONENT  (NOT ML — be honest)
+--------------------------------------------------------
+Question answered: "About how many days until this part hits
+the service threshold?"
+
+This is DEGRADATION-TREND EXTRAPOLATION (v4/src/lib/trendRul.js),
+a standard industrial prognosis method — NOT machine learning.
+
+The formula:
+  days remaining = (current health − 20% service threshold)
+                   ÷ current health decline per day
+
+The decline rate comes from the same wear law the simulator
+uses (simEngine.js): a baseline wear rate, multiplied by machine
+age (older machines wear faster) and a per-component factor
+(so parts differ), and it ACCELERATES when the component's
+sensors are in warning or critical. So the "days left" number
+drops immediately when a fault develops.
+
+Why NOT ML here:
+  There is no real failure data on simulated machines to train
+  or validate an RUL model against. We used to have a small
+  neural network doing this; it trained on labels generated from
+  our own formula, so it could only learn to reproduce that
+  formula — circular reasoning dressed up as ML. We removed it.
+  An estimate you can explain in one sentence and validate live
+  beats a black box you can't defend.
+
+Validation:
+  Every prediction is written to the rul_predictions table. The
+  "Prediction accuracy" panel later compares those predictions
+  against what actually happened (critical alerts) — the app
+  grading its own homework.
+
+
+PART C — TURNING SIMULATED DATA INTO A TRAINABLE DATASET
+--------------------------------------------------------
+There is a third path: make the simulated machine PRODUCE a
+labelled dataset, then train a SUPERVISED model on it in the
+Dataset Lab. This is different from Part A — here we manufacture
+labels from the event log.
+
+How (Simulate page -> Export CSV, datasetExport.js):
+  - pulls the machine's full readings history, pivots to one row
+    per tick
+  - labels each row: failure = 1 if a CRITICAL alert happened
+    within the next N minutes (N = 5/10/30, your choice), else 0
+  - downloads an AI4I-shaped CSV
+Then drop that CSV into the Dataset Lab (ML Model page). The
+server auto-detects the sensors and the "failure" column and
+trains a RandomForest classifier — exactly the supervised path
+used for real datasets.
+
+Why labels come from alerts, not from the simulator's secret
+knowledge of when a fault was injected:
+  A real plant has no ground-truth "fault now" flag. It has
+  sensors plus an alarm/work-order log. Deriving labels from
+  operational events is how real predictive-maintenance products
+  bootstrap supervised learning. This is the deployable pipeline.
+
+
+THE THREE THINGS SIDE BY SIDE
+-----------------------------
+  Part A  Anomaly detection   ML (unsupervised)   "abnormal now?"
+  Part B  Trend extrapolation NOT ML (formula)    "days left?"
+  Part C  Exported CSV -> RF  ML (supervised)     "will it fail?"
+
+
+THE HONEST FRAMING (say this in the viva)
+-----------------------------------------
+"On simulated machines, the anomaly detector is genuine
+unsupervised ML — the same technique validated on real data.
+The per-component 'days left' is a transparent engineering
+estimate, not ML, because there's no real failure data to
+validate an ML model against. And the export feature lets the
+simulator manufacture a labelled dataset the way a real plant
+would — from its alarm log — which we then train a supervised
+model on. We are explicit everywhere about which numbers are
+validated ML and which are demonstration."
+
+
+RELEVANT FILES
+--------------
+  v4/src/hooks/useSimulator.js          the 2-second tick loop
+  v4/src/lib/simEngine.js               sensor physics + wear law
+  v4/src/lib/trendRul.js                Part B (days left)
+  v4/src/lib/datasetExport.js           Part C (labelled CSV)
+  v4/src/components/machine/MLAnalysisPanel.jsx  Part A UI (auto)
+  ML server/ml-server/main.py           /train-anomaly, /detect,
+                                        /train, /predict
+==============================================================

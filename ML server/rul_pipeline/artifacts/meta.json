@@ -1,0 +1,71 @@
+{
+  "feature_names": [
+    "TP2_val",
+    "TP2_mean",
+    "TP2_std",
+    "TP2_slope",
+    "TP3_val",
+    "TP3_mean",
+    "TP3_std",
+    "TP3_slope",
+    "H1_val",
+    "H1_mean",
+    "H1_std",
+    "H1_slope",
+    "DV_pressure_val",
+    "DV_pressure_mean",
+    "DV_pressure_std",
+    "DV_pressure_slope",
+    "Reservoirs_val",
+    "Reservoirs_mean",
+    "Reservoirs_std",
+    "Reservoirs_slope",
+    "Oil_temperature_val",
+    "Oil_temperature_mean",
+    "Oil_temperature_std",
+    "Oil_temperature_slope",
+    "Motor_current_val",
+    "Motor_current_mean",
+    "Motor_current_std",
+    "Motor_current_slope"
+  ],
+  "sensors": [
+    "TP2",
+    "TP3",
+    "H1",
+    "DV_pressure",
+    "Reservoirs",
+    "Oil_temperature",
+    "Motor_current"
+  ],
+  "window": 60,
+  "stride": 30,
+  "rul_cap_h": 336,
+  "horizon_h": 24,
+  "seq_len": 20,
+  "n_train": 28187,
+  "n_test": 9884,
+  "train_end": "2020-06-01 00:00",
+  "failures": [
+    [
+      "2020-04-18 00:00",
+      "2020-04-19 01:00",
+      "air_leak"
+    ],
+    [
+      "2020-05-29 23:00",
+      "2020-05-30 05:00",
+      "air_leak"
+    ],
+    [
+      "2020-06-05 10:00",
+      "2020-06-07 14:00",
+      "oil_leak"
+    ],
+    [
+      "2020-07-15 13:00",
+      "2020-07-15 18:00",
+      "air_leak"
+    ]
+  ]
+}
