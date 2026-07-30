@@ -38,13 +38,23 @@ export async function getMachineReadingsHistory(machineId, hoursBack = 24) {
   if (!sensors?.length) return { sensors: [], readings: {} }
 
   const ids = sensors.map(s => s.id)
-  const { data: readings, error } = await supabase
-    .from('sensor_readings')
-    .select('sensor_id, value, timestamp')
-    .in('sensor_id', ids)
-    .gte('timestamp', since)
-    .order('timestamp', { ascending: true })
-  if (error) throw error
+  // Paginate: PostgREST caps a plain select at 1000 rows, which silently
+  // truncated the charts (one machine at 2-min density is ~11k rows).
+  const readings = []
+  const PAGE = 1000
+  const MAX_ROWS = 40000            // safety ceiling
+  for (let from = 0; from < MAX_ROWS; from += PAGE) {
+    const { data, error } = await supabase
+      .from('sensor_readings')
+      .select('sensor_id, value, timestamp')
+      .in('sensor_id', ids)
+      .gte('timestamp', since)
+      .order('timestamp', { ascending: true })
+      .range(from, from + PAGE - 1)
+    if (error) throw error
+    readings.push(...(data || []))
+    if (!data || data.length < PAGE) break
+  }
 
   // group by sensor_id
   const grouped = {}

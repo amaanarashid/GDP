@@ -8,18 +8,20 @@ import PriorityPanel from '../../components/machine/PriorityPanel'
 import MLAnalysisPanel from '../../components/machine/MLAnalysisPanel'
 import PredictionAccuracy from '../../components/machine/PredictionAccuracy'
 import MaintenanceModal from '../../components/machine/MaintenanceModal'
+import ManualViewer from '../../components/machine/ManualViewer'
 import SensorChart from '../../components/charts/SensorChart'
 import Spinner from '../../components/ui/Spinner'
 import {
   healthColor, healthBg, statusBadge, machineTypeLabel, fmtHours, fmtAgo,
 } from '../../utils/helpers'
-import { ArrowLeft, Wrench, MapPin, Clock, Activity, History } from 'lucide-react'
+import { ArrowLeft, Wrench, MapPin, Clock, Activity, History, BookOpen } from 'lucide-react'
 
 export default function MachineDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { bundle, history, ranked, logs, loading, modelReady, error, reload } = useMachineDetail(id)
   const [showMaint, setShowMaint] = useState(false)
+  const [showManual, setShowManual] = useState(false)
 
   if (loading) return <Spinner full label="Loading machine…" />
   if (error || !bundle) {
@@ -53,6 +55,12 @@ export default function MachineDetail() {
           </div>
           <p className="text-gray-500 text-sm">{machineTypeLabel(machine.type)}</p>
         </div>
+        {machine.manual_url && (
+          <button onClick={() => setShowManual(true)} className="btn-secondary flex items-center gap-2"
+            title="Open and search the machine manual">
+            <BookOpen className="w-4 h-4" /> Manual
+          </button>
+        )}
         <button onClick={() => setShowMaint(true)} className="btn-primary flex items-center gap-2">
           <Wrench className="w-4 h-4" /> Complete maintenance
         </button>
@@ -156,6 +164,10 @@ export default function MachineDetail() {
           </div>
         )}
       </div>
+
+      {showManual && machine.manual_url && (
+        <ManualViewer machine={machine} onClose={() => setShowManual(false)} />
+      )}
 
       {showMaint && (
         <MaintenanceModal

@@ -1,9 +1,13 @@
-fastapi
-uvicorn
-pandas
-numpy
-scikit-learn
-joblib
-python-multipart
-supabase
-python-dotenv
+# Pinned deliberately: the .joblib models in models/ and in
+# ../rul_pipeline/artifacts/ were pickled with scikit-learn 1.7.2.
+# A different version may refuse to unpickle them. If you upgrade
+# scikit-learn, re-run the rul_pipeline scripts to regenerate.
+fastapi==0.139.0
+uvicorn[standard]>=0.30
+pandas==2.3.3
+numpy==2.2.6
+scikit-learn==1.7.2
+joblib==1.5.3
+python-multipart==0.0.32
+python-dotenv==1.2.2
+supabase>=2.0

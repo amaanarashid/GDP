@@ -22,8 +22,12 @@ ML server/MetroPT3(AirCompressor).csv
 datasets/metropt+3+dataset/
 datasets/metropt+3+dataset.zip
 
-# ── regenerable cached arrays (rebuild: rul_pipeline/01_build_dataset.py)
-ML server/rul_pipeline/artifacts/*.npy
+# ── large sequence caches only (20MB, unused at serve time;
+# rebuild with rul_pipeline/01_build_dataset.py).
+# The small X_/y_/t_ test arrays MUST stay tracked — /evaluate-rul
+# loads them at runtime to draw the benchmark charts.
+ML server/rul_pipeline/artifacts/seq_train.npy
+ML server/rul_pipeline/artifacts/seq_test.npy
 
 # ── OS / editor noise ────────────────────────────────────────
 .DS_Store

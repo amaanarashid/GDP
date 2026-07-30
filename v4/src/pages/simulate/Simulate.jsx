@@ -8,8 +8,9 @@ import { machineTypeLabel, healthColor, statusBadge } from '../../utils/helpers'
 import ComponentCard from '../../components/machine/ComponentCard'
 import FaultPanel from '../../components/machine/FaultPanel'
 import ResetDialog from '../../components/machine/ResetDialog'
+import DemoPanel from '../../components/machine/DemoPanel'
 import Spinner from '../../components/ui/Spinner'
-import { Play, Pause, Activity, RotateCcw, DatabaseZap, Download } from 'lucide-react'
+import { Play, Pause, Activity, RotateCcw, DatabaseZap, Download, Presentation } from 'lucide-react'
 
 export default function Simulate() {
   const [machines, setMachines]       = useState([])
@@ -23,6 +24,12 @@ export default function Simulate() {
   const [genMsg, setGenMsg]           = useState('')
   const [horizonMin, setHorizonMin]   = useState(10)  // export label horizon
   const [exportMsg, setExportMsg]     = useState('')
+  const [demoMode, setDemoMode]       = useState(false)
+  // Healthy-history resolution. The DB prunes readings older than 24h, so we
+  // add data by sampling FINER inside the 24h window, not by extending it.
+  // The ML server trains on up to ~1000 time points, so 2-min (720) is a good
+  // default — 7.5x more "normal" for the detector than the old 15-min (96).
+  const [genIntervalMin, setGenIntervalMin] = useState(2)
 
   // Load machine list
   useEffect(() => {
@@ -77,9 +84,10 @@ export default function Simulate() {
   async function handleGenerate() {
     setGenMsg('Generating…')
     try {
-      const count = await generateHistory(selectedId, 24, 15)
-      setGenMsg(`Generated ${count?.toLocaleString?.() || ''} readings`)
-      setTimeout(() => setGenMsg(''), 3000)
+      const count = await generateHistory(selectedId, 24, genIntervalMin)
+      const points = Math.round((24 * 60) / genIntervalMin)
+      setGenMsg(`Generated ${count?.toLocaleString?.() || ''} readings — ${points} time points per sensor`)
+      setTimeout(() => setGenMsg(''), 5000)
     } catch {
       setGenMsg('Failed — run step 5 migration')
       setTimeout(() => setGenMsg(''), 4000)
@@ -97,6 +105,16 @@ export default function Simulate() {
       setTimeout(() => setExportMsg(''), 6000)
     }
   }
+
+  // ── Demo mode: one-click prepare (stop → reset → 24h healthy history) ──
+  const handleDemoPrepare = useCallback(async () => {
+    sim.stop()
+    await resetMachine(selectedId, true, true)   // wipe history + reset runtime
+    sim.resetState()
+    const count = await generateHistory(selectedId, 24, genIntervalMin)
+    await reloadBundle()
+    return count
+  }, [selectedId, sim, reloadBundle, genIntervalMin])
 
   if (loading) return <Spinner full label="Loading machines…" />
 
@@ -129,11 +147,26 @@ export default function Simulate() {
             className="btn-secondary flex items-center gap-2">
             <RotateCcw className="w-4 h-4" /> Reset
           </button>
-          <button onClick={handleGenerate} disabled={genMsg === 'Generating…'}
-            className="btn-secondary flex items-center gap-2"
-            title="Generate 24h of history for charts">
-            <DatabaseZap className={`w-4 h-4 ${genMsg === 'Generating…' ? 'animate-pulse' : ''}`} /> Generate 24h
+          <button onClick={() => setDemoMode(d => !d)}
+            className={demoMode ? 'btn-primary flex items-center gap-2' : 'btn-secondary flex items-center gap-2'}
+            title="Guided, in-order steps for presenting">
+            <Presentation className="w-4 h-4" /> Demo mode
           </button>
+          {/* Healthy history: 24h window, choosable sampling density */}
+          <div className="flex items-center gap-1">
+            <select value={genIntervalMin} onChange={e => setGenIntervalMin(Number(e.target.value))}
+              className="select w-32" title="Sampling interval — smaller means more normal data for the detector">
+              <option value={15}>15 min · 96 pts</option>
+              <option value={5}>5 min · 288 pts</option>
+              <option value={2}>2 min · 720 pts</option>
+              <option value={1}>1 min · 1440 pts</option>
+            </select>
+            <button onClick={handleGenerate} disabled={genMsg === 'Generating…'}
+              className="btn-secondary flex items-center gap-2"
+              title="Wipe and regenerate 24h of HEALTHY history at the chosen density">
+              <DatabaseZap className={`w-4 h-4 ${genMsg === 'Generating…' ? 'animate-pulse' : ''}`} /> Generate 24h
+            </button>
+          </div>
 
           {/* Export labelled dataset (failure = critical alert within horizon) */}
           <div className="flex items-center gap-1">
@@ -170,6 +203,17 @@ export default function Simulate() {
             : 'text-green-600 bg-green-50 border-green-200'}`}>
           {genMsg}
         </div>
+      )}
+
+      {demoMode && machine && (
+        <DemoPanel
+          faults={faults}
+          running={sim.running}
+          onPrepare={handleDemoPrepare}
+          onStream={sim.start}
+          onInjectFault={sim.injectFault}
+          onClearFaults={sim.clearAllFaults}
+        />
       )}
 
       {!machine ? (

@@ -1,6 +1,52 @@
 import { supabase } from './supabase'
 import { PRESETS } from './presets'
 
+// ── Machine manual (PDF) ───────────────────────────────────
+// Uploads to the public "manuals" bucket and stores the URL on the
+// machine row. Requires data/migration_manuals.sql to have been run.
+const MANUAL_MAX_MB = 25
+
+export async function uploadMachineManual(machineId, file) {
+  if (!file) return null
+  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+    throw new Error('Manual must be a PDF file')
+  }
+  if (file.size > MANUAL_MAX_MB * 1024 * 1024) {
+    throw new Error(`PDF is too large (max ${MANUAL_MAX_MB} MB)`)
+  }
+
+  // One manual per machine — a fixed path so re-uploads overwrite
+  const path = `${machineId}/manual.pdf`
+  const { error: upErr } = await supabase.storage
+    .from('manuals')
+    .upload(path, file, { upsert: true, contentType: 'application/pdf' })
+  if (upErr) {
+    if (`${upErr.message}`.toLowerCase().includes('bucket')) {
+      throw new Error('Storage bucket "manuals" not found — run data/migration_manuals.sql first')
+    }
+    throw upErr
+  }
+
+  const { data: pub } = supabase.storage.from('manuals').getPublicUrl(path)
+  const manual_url = pub?.publicUrl
+  const { error: updErr } = await supabase
+    .from('machines')
+    .update({ manual_url, manual_name: file.name })
+    .eq('id', machineId)
+  if (updErr) throw updErr
+
+  return { manual_url, manual_name: file.name }
+}
+
+export async function removeMachineManual(machineId) {
+  await supabase.storage.from('manuals').remove([`${machineId}/manual.pdf`])
+  const { error } = await supabase
+    .from('machines')
+    .update({ manual_url: null, manual_name: null })
+    .eq('id', machineId)
+  if (error) throw error
+}
+
 // ── Create machine from preset ─────────────────────────────
 export async function createMachineFromPreset({ name, type, location, runtimeHours = 0 }) {
   // 1. Insert machine

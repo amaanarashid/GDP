@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { createMachineFromPreset, createCustomMachine } from '../../lib/adminData'
+import { createMachineFromPreset, createCustomMachine, uploadMachineManual } from '../../lib/adminData'
 import { PRESET_TYPES, presetSensorCount, PRESETS } from '../../lib/presets'
-import { X, Plus, Trash2 } from 'lucide-react'
+import { X, Plus, Trash2, FileText, Upload } from 'lucide-react'
 
 export default function AddMachineModal({ onClose, onCreated }) {
   const [mode, setMode]         = useState('preset') // 'preset' | 'custom'
@@ -10,6 +10,7 @@ export default function AddMachineModal({ onClose, onCreated }) {
   const [type, setType]         = useState('conveyor_drive')
   const [saving, setSaving]     = useState(false)
   const [error, setError]       = useState('')
+  const [manual, setManual]     = useState(null)   // optional PDF manual
 
   // custom builder
   const [components, setComponents] = useState([
@@ -45,10 +46,19 @@ export default function AddMachineModal({ onClose, onCreated }) {
     if (!name.trim()) { setError('Machine name is required'); return }
     setSaving(true); setError('')
     try {
-      if (mode === 'preset') {
-        await createMachineFromPreset({ name, type, location })
-      } else {
-        await createCustomMachine({ name, location, components })
+      const created = mode === 'preset'
+        ? await createMachineFromPreset({ name, type, location })
+        : await createCustomMachine({ name, location, components })
+
+      // Manual is optional — a failed upload must not lose the machine
+      if (manual && created?.id) {
+        try {
+          await uploadMachineManual(created.id, manual)
+        } catch (e) {
+          setError(`Machine created, but the manual failed to upload: ${e.message}`)
+          setSaving(false)
+          return
+        }
       }
       onCreated()
     } catch (e) {
@@ -87,6 +97,24 @@ export default function AddMachineModal({ onClose, onCreated }) {
             <label className="label">Location</label>
             <input value={location} onChange={e => setLocation(e.target.value)} className="input" placeholder="e.g. Production Floor C" />
           </div>
+        </div>
+
+        {/* Optional PDF manual — technicians can search it on the machine page */}
+        <div className="mb-4">
+          <label className="label flex items-center gap-1.5">
+            <FileText className="w-3.5 h-3.5" /> Machine manual (PDF, optional)
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer border border-dashed border-gray-300 rounded-lg p-3 hover:border-gray-400">
+            <Upload className="w-4 h-4 text-gray-600 shrink-0" />
+            <span className="text-sm text-gray-600 truncate">
+              {manual ? manual.name : 'Choose a PDF…'}
+            </span>
+            <input type="file" accept="application/pdf,.pdf" className="hidden"
+              onChange={e => setManual(e.target.files?.[0] || null)} />
+          </label>
+          <p className="text-xs text-gray-500 mt-1">
+            Technicians can open and search this from the machine page. Max 25 MB.
+          </p>
         </div>
 
         {mode === 'preset' ? (

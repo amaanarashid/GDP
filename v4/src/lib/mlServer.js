@@ -1,11 +1,40 @@
 // ============================================================
 // ML SERVER CLIENT
 // Talks to the Python FastAPI server (ml-server/).
-// Change ML_SERVER_URL when deploying the Python service online.
+//
+// The server address is resolved at RUNTIME, in this order:
+//   1. ?ml=https://...   URL parameter (also remembered after)
+//   2. a previously remembered address (localStorage)
+//   3. VITE_ML_SERVER_URL   (build-time, set in Vercel)
+//   4. http://localhost:8000   (local development default)
+//
+// Why runtime: when the Python server is exposed through a
+// temporary tunnel (cloudflared/ngrok) the address changes on
+// every restart. Resolving at runtime means you paste the new
+// address into the URL once instead of rebuilding the site.
+//   e.g.  https://your-app.vercel.app/model?ml=https://abc.trycloudflare.com
+// Clear it again with  ?ml=reset
 // ============================================================
 
-export const ML_SERVER_URL =
-  import.meta.env.VITE_ML_SERVER_URL || 'http://localhost:8000'
+function resolveMlServerUrl() {
+  const strip = u => String(u).trim().replace(/\/+$/, '')
+  try {
+    const param = new URLSearchParams(window.location.search).get('ml')
+    if (param === 'reset') {
+      localStorage.removeItem('mlServerUrl')
+    } else if (param) {
+      localStorage.setItem('mlServerUrl', strip(param))
+      return strip(param)
+    }
+    const saved = localStorage.getItem('mlServerUrl')
+    if (saved) return strip(saved)
+  } catch {
+    // localStorage unavailable (private mode) — fall through to env
+  }
+  return strip(import.meta.env.VITE_ML_SERVER_URL || 'http://localhost:8000')
+}
+
+export const ML_SERVER_URL = resolveMlServerUrl()
 
 async function jsonOrThrow(res) {
   const data = await res.json().catch(() => ({}))
