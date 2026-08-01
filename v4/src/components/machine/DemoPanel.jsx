@@ -70,7 +70,7 @@ export default function DemoPanel({ faults, onPrepare, onStream, onInjectFault, 
       if (step.id === 'fault')   {
         if (!chosenFault) throw new Error('No faults defined for this machine type')
         onInjectFault(chosenFault)
-        setMsg(`Injected "${chosenFault.name}" — wait ~30s, then check the ML panel.`)
+        setMsg(`Injected "${chosenFault.label}" — wait ~30s, then check the ML panel.`)
       }
       if (step.id === 'fix')     { onClearFaults() }
       setDone(d => ({ ...d, [step.id]: true }))
@@ -108,7 +108,7 @@ export default function DemoPanel({ faults, onPrepare, onStream, onInjectFault, 
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           <span className="text-xs text-gray-500">Fault to inject:</span>
           <select value={faultId} onChange={e => setFaultId(e.target.value)} className="select w-56">
-            {faults.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+            {faults.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
           </select>
         </div>
       )}

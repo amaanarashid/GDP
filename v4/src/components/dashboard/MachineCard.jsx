@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import DigitalTwin from '../machine/DigitalTwin'
-import Twin3D, { TWIN3D_TYPES } from '../machine/Twin3D'
+import Twin3D from '../machine/Twin3D'
 import { healthColor, healthBg, statusBadge, machineTypeLabel, fmtHours } from '../../utils/helpers'
 import { MapPin, ChevronRight } from 'lucide-react'
 
@@ -15,7 +14,7 @@ export default function MachineCard({ machine }) {
 
   return (
     <div onClick={() => navigate(`/machine/${machine.id}`)}
-      className="card cursor-pointer hover:border-gray-300 transition-colors group">
+      className="card card-hover fade-in cursor-pointer group">
       {/* header */}
       <div className="flex items-start justify-between mb-3">
         <div className="min-w-0">
@@ -29,13 +28,9 @@ export default function MachineCard({ machine }) {
 
       {/* digital twin */}
       <div className="bg-gray-100 rounded-lg p-2 mb-3 border border-gray-200/70">
-        {TWIN3D_TYPES.includes(machine.type) ? (
-          <Twin3D type={machine.type} components={machine.components}
-            running={machine.status !== 'offline'}
-            interactive={false} showLegend={false} spin={false} height={150} />
-        ) : (
-          <DigitalTwin type={machine.type} components={machine.components} running={machine.status !== 'offline'} />
-        )}
+        <Twin3D type={machine.type} components={machine.components}
+          running={machine.status !== 'offline'}
+          interactive={false} showLegend={false} spin={false} height={150} />
       </div>
 
       {/* health bar */}

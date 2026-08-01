@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useMachineDetail } from '../../hooks/useMachineDetail'
-import DigitalTwin from '../../components/machine/DigitalTwin'
-import Twin3D, { TWIN3D_TYPES } from '../../components/machine/Twin3D'
+import Twin3D from '../../components/machine/Twin3D'
 import ComponentCard from '../../components/machine/ComponentCard'
 import PriorityPanel from '../../components/machine/PriorityPanel'
 import MLAnalysisPanel from '../../components/machine/MLAnalysisPanel'
@@ -39,6 +38,16 @@ export default function MachineDetail() {
 
   // pick a few key sensors to chart (first sensor of each component)
   const chartSensors = components.map(c => sensors.find(s => s.component_id === c.id)).filter(Boolean)
+
+  // Before the first prediction lands, show the components with their real
+  // health so the panel isn't empty — flagged as still analysing.
+  const rankedOrPlaceholder = ranked.length ? ranked : components.map(c => ({
+    ...c,
+    priority: {
+      score: 0, tier: 'healthy', reason: 'Analysing…', days: 180,
+      health: parseFloat(c.health_score ?? 100), critical: 0, warning: 0, source: null,
+    },
+  }))
 
   return (
     <div>
@@ -94,17 +103,13 @@ export default function MachineDetail() {
         <div className="lg:col-span-2 card">
           <h2 className="section-title">Digital twin</h2>
           <div className="bg-gray-100 rounded-lg p-4 border border-gray-200/70">
-            {TWIN3D_TYPES.includes(machine.type) ? (
-              <Twin3D type={machine.type} components={components} running={running} />
-            ) : (
-              <DigitalTwin type={machine.type} components={components} running={running} />
-            )}
+            <Twin3D type={machine.type} components={components} running={running} />
           </div>
         </div>
 
         {/* Priority */}
         <div className="lg:col-span-1 space-y-6">
-          <PriorityPanel rankedComponents={ranked.length ? ranked : components.map(c => ({ ...c, priority: { score: 0, tier: 'healthy', reason: 'Analyzing…', days: 180, health: parseFloat(c.health_score ?? 100), critical: 0, warning: 0 } }))} modelReady={modelReady} />
+          <PriorityPanel rankedComponents={rankedOrPlaceholder} modelReady={modelReady} />
           <MLAnalysisPanel
             machine={machine}
             sensors={sensors}
@@ -123,7 +128,14 @@ export default function MachineDetail() {
       </div>
 
       {/* Sensor history charts */}
-      <h2 className="section-title">Sensor history (24h)</h2>
+      <h2 className="section-title flex items-center gap-2">
+        Sensor history (24h)
+        {running && (
+          <span className="flex items-center gap-1 text-[10px] font-normal text-gray-500">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> live
+          </span>
+        )}
+      </h2>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
         {chartSensors.map(s => (
           <div key={s.id} className="card-sm">

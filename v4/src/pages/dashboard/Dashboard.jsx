@@ -4,7 +4,6 @@ import { useDashboard } from '../../hooks/useDashboard'
 import MachineCard from '../../components/dashboard/MachineCard'
 import { StatCard, AlertsFeed } from '../../components/dashboard/DashboardWidgets'
 import QRScanner from '../../components/machine/QRScanner'
-import Spinner from '../../components/ui/Spinner'
 import { useAuth } from '../../context/AuthContext'
 import { RefreshCw, QrCode } from 'lucide-react'
 
@@ -31,7 +30,55 @@ export default function Dashboard() {
     return { total, healthy, warning, critical, avgHealth, activeAlerts }
   }, [machines, alerts])
 
-  if (loading) return <Spinner full label="Loading dashboard…" />
+  // Skeleton rather than a blank spinner — the page keeps its shape while
+  // data arrives, which reads as much faster even at the same speed.
+  if (loading) {
+    return (
+      <div>
+        <div className="mb-6">
+          <div className="skeleton h-7 w-64 mb-2" />
+          <div className="skeleton h-4 w-80" />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="card">
+              <div className="skeleton h-3 w-20 mb-3" />
+              <div className="skeleton h-7 w-14" />
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <div className="skeleton h-5 w-28 mb-4" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="card">
+                  <div className="skeleton h-4 w-32 mb-2" />
+                  <div className="skeleton h-3 w-20 mb-3" />
+                  <div className="skeleton h-32 w-full mb-3" />
+                  <div className="skeleton h-2 w-full" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="lg:col-span-1">
+            <div className="card">
+              <div className="skeleton h-5 w-32 mb-4" />
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex gap-3 mb-3">
+                  <div className="skeleton h-6 w-6 rounded-md shrink-0" />
+                  <div className="flex-1">
+                    <div className="skeleton h-3 w-full mb-1.5" />
+                    <div className="skeleton h-2.5 w-24" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const firstName = (profile?.full_name || profile?.email || '').split(' ')[0] || profile?.email
 
@@ -40,10 +87,10 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex items-end justify-between mb-6 flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900 mb-1">
+          <h1 className="page-title">
             Welcome back{firstName ? `, ${firstName}` : ''}
           </h1>
-          <p className="text-gray-500">Live overview of all machines and their health.</p>
+          <p className="page-sub">Live overview of all machines and their health.</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setShowScanner(true)} className="btn-primary flex items-center gap-2 text-sm">
@@ -58,7 +105,7 @@ export default function Dashboard() {
       {showScanner && <QRScanner onScan={handleScan} onClose={() => setShowScanner(false)} />}
 
       {/* Stat row */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6 stagger">
         <StatCard label="Total machines" value={stats.total} />
         <StatCard label="Avg health" value={`${stats.avgHealth}%`}
           accent={stats.avgHealth >= 75 ? 'green' : stats.avgHealth >= 50 ? 'yellow' : 'red'} />
@@ -76,7 +123,7 @@ export default function Dashboard() {
               No machines yet. Add machines from the Admin page.
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 stagger">
               {machines.map(m => <MachineCard key={m.id} machine={m} />)}
             </div>
           )}

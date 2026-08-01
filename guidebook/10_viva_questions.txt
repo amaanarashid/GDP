@@ -1,0 +1,409 @@
+==============================================================
+10 — VIVA QUESTION BANK
+Every question you're likely to get, with a model answer.
+Read the ★ ones until you can say them without thinking.
+==============================================================
+
+HOW TO USE THIS
+  Don't memorise word for word — memorise the SHAPE of each
+  answer. Examiners follow up, so know one level deeper than
+  the answer given here.
+  Golden rule: if you don't know, say "I don't have data on
+  that — we didn't test it." That scores better than a guess,
+  and you've earned credibility by being honest elsewhere.
+
+
+==============================================================
+A. THE PROJECT
+==============================================================
+
+★ A1. "Explain your project in one minute."
+  Machines break down. Fixing after failure is expensive and
+  unplanned; fixing on a fixed calendar wastes good parts.
+  Predictive maintenance uses sensor data to predict trouble
+  early enough to plan the repair. We built the full platform:
+  a dashboard with 3D digital twins, a simulator that streams
+  live sensor data, and three machine-learning paths served by
+  a Python API — validated on real industrial datasets.
+
+A2. "Why AGVs / this domain?"
+  Automated guided vehicles and factory machines run
+  continuously, and unplanned downtime is the dominant cost in
+  automated production. It's also a domain with public real
+  datasets, which let us validate rather than only demonstrate.
+
+★ A3. "What is the single biggest achievement?"
+  Trained only on healthy data from a real metro air compressor,
+  our detector caught a real oil-leak failure it had never seen
+  — a failure type absent from its training data — about 70
+  minutes after onset, roughly 51 hours before the repair was
+  completed, with a 1.3% false-alarm rate and AUC 0.906.
+
+A4. "What did you personally build?"
+  [Answer honestly for your team split. Know which files are
+  yours and be able to open one and explain it.]
+
+★ A5. "What would you do differently?"
+  Three things. Start with the real dataset instead of the
+  simulator — we spent time on simulated ML that couldn't be
+  validated. Add automated tests early. And move data ingestion
+  server-side from the start rather than writing from the
+  browser.
+
+
+==============================================================
+B. THE MACHINE LEARNING
+==============================================================
+
+★ B1. "What models do you use and why each?"
+  Three, matched to what data is available:
+  1. Isolation Forest (unsupervised) — "is something wrong
+     now?" Needs no failure labels, which matters because a
+     new machine has never failed.
+  2. RandomForest (supervised) — "will it fail?" Used when a
+     dataset has a failure column. Gives risk % plus feature
+     importance, so it's explainable.
+  3. Quantile gradient boosting + conformal calibration —
+     "how long left?" Outputs a range, not a point.
+
+★ B2. "Why not deep learning / LSTM?"
+  We matched model complexity to data volume. Deep models need
+  thousands of failure examples; industrial PdM datasets have
+  handfuls — ours had two. On small tabular data, tree
+  ensembles match or beat deep learning (Grinsztajn et al.,
+  NeurIPS 2022). An LSTM would overfit and give nothing
+  interpretable to a maintenance engineer.
+
+★ B3. "Why unsupervised for the headline result?"
+  Labels are the real constraint. And we tested the
+  alternative: a supervised model on the same window scored
+  AUC ~0.5 — random. The unsupervised detector scored 0.91.
+  The data decided, not us.
+  ^ STRONGEST ANSWER IN THE VIVA. Use it.
+
+B4. "How does Isolation Forest work?"
+  It builds many random trees that try to isolate each data
+  point. Normal points sit in dense regions and take many
+  splits to isolate; unusual points get isolated quickly. The
+  average isolation depth becomes the anomaly score. No labels
+  needed.
+
+B5. "How does RandomForest work?"
+  Hundreds of decision trees, each trained on a random subset
+  of rows and features; they vote. The proportion voting
+  "failure" becomes the risk percentage. Averaging many trees
+  reduces overfitting, and how often each feature is used for
+  useful splits gives feature importance.
+
+B6. "What is conformal prediction / CQR?"
+  Quantile regression gives P10/P50/P90 estimates, but those
+  intervals are usually too narrow under distribution shift.
+  Conformalized Quantile Regression measures, on a held-out
+  calibration set, how far the truth actually falls outside
+  the interval, then widens it by that amount — giving a
+  statistical coverage guarantee. Ours achieves 78% against
+  an 80% target.
+
+B7. "How did you choose hyperparameters?"
+  Deliberately near-default, to avoid overfitting a tiny test
+  set. Tuning on two test failures would be leakage by another
+  name.
+
+B8. "Why RandomForest over XGBoost?"
+  HistGradientBoosting — which we do use for RUL — is the same
+  algorithm family, sklearn-native, one fewer dependency. For
+  the classifier, RandomForest is more robust to unscaled
+  arbitrary user data with no tuning.
+
+B9. "Why not an autoencoder for anomaly detection?"
+  Tried-and-true baseline first. With 8 features and one
+  machine, an autoencoder adds parameters without adding
+  signal. Valid future work.
+
+
+==============================================================
+C. DATA & FEATURES
+==============================================================
+
+★ C1. "What datasets did you use?"
+  Two real ones. MetroPT-3: a metro train air production unit
+  (Porto, 2020), ~10-second sampling, four documented failures
+  — used for the detector and RUL. AI4I 2020 from UCI: 10,000
+  rows, 5 sensors, 3.4% failure rate — used for the supervised
+  classifier.
+
+★ C2. "Your simulated data isn't real — doesn't that invalidate
+  everything?"
+  It would if we claimed results from it. We don't. Simulated
+  machines demonstrate the workflow — data capture, labelling,
+  training, live prediction. Every number we report as a result
+  comes from the real datasets. The app labels which is which
+  on screen.
+
+C3. "How do you generate simulated sensor data?"
+  A physics-inspired model: each sensor has a baseline, a 24-h
+  cycle, an 8-h shift cycle, an autocorrelated random walk and
+  small noise — because real sensor traces are smooth and
+  periodic, not independent random values. Injected faults push
+  specific sensors toward their warning or critical thresholds.
+
+C4. "What features does the detector use?"
+  Two-hour rolling duty cycles and means of 8 signals. An air
+  leak makes the compressor run more often — that shows up in
+  multi-hour aggregates. We tested 10-minute windows first and
+  found no signal, which is itself a finding.
+
+C5. "How do you label data for supervised training?"
+  From the operational event log: a row is labelled "failure"
+  if a critical alert occurred within the next N minutes. A
+  real plant has no ground-truth fault flag — it has sensors
+  and an alarm/work-order history — so this is the deployable
+  approach.
+
+★ C6. "Why is the labelling horizon 10 minutes?"
+  It's a business decision, not a technical one: it should
+  equal the warning time the maintenance team needs to act.
+  We can export at 5, 10 or 30 minutes. Longer horizons give
+  earlier warning but more false alarms — a precision versus
+  lead-time trade-off.
+
+C7. "Is 24 hours of data enough?"
+  Enough to demonstrate the technique, not to validate it. Our
+  real-data detector learned from roughly four months of
+  healthy data. We say that explicitly.
+
+
+==============================================================
+D. EVALUATION & METRICS  (expect the most questions here)
+==============================================================
+
+★ D1. "What are your results?"
+  Detector: AUC 0.906 on two unseen real failures, oil leak
+  flagged ~51 hours before repair, 1.3% false alarms, trained
+  with zero labels.
+  Classifier on AI4I: ROC-AUC 0.973, F1 0.571, precision 0.75,
+  recall 0.46 with a chronological split.
+  RUL: MAE 4.37 days, 78% interval coverage against an 80%
+  target.
+
+★ D2. "Why is recall only 0.46?"
+  Because we use a chronological split — train on the past,
+  test on the future. A random split gave F1 0.72, but random
+  splits on time-series data leak future information and
+  inflate results. 0.57 is the honest number.
+
+★ D3. "Isn't 4.4 days MAE for RUL bad?"
+  It's weak, and that's precisely why we report a calibrated
+  80% interval rather than a single number. A naive "always
+  predict maximum" scores better MAE overall because machines
+  are healthy most of the time — which shows MAE alone is the
+  wrong lens. Near failure the model beats naive baselines.
+  The detector is the operational early warning; RUL is a
+  planning aid.
+
+D4. "What is AUC and why report it?"
+  Area under the ROC curve: the probability the model ranks a
+  failing case above a healthy one. It's threshold-independent,
+  which matters when classes are heavily imbalanced — accuracy
+  would be misleading at 3% failure rate.
+
+D5. "Why not report accuracy?"
+  With 3.4% failures, predicting "never fails" gives 96.6%
+  accuracy and is useless. Precision, recall, F1 and AUC
+  describe imbalanced problems properly.
+
+★ D6. "Only two test failures — can you claim anything?"
+  It's every real failure in the dataset's test period, and one
+  is a failure TYPE never seen in training — the hardest
+  generalisation test available. The AUC is computed over
+  roughly 54,000 test minutes, not two events, and we report
+  the false-alarm rate alongside it.
+
+D7. "What is data leakage and how did you avoid it?"
+  Leakage is when information unavailable at prediction time
+  reaches training. We avoid it three ways: chronological
+  splits, fitting the scaler on training data only, and
+  calibrating conformal intervals on a separate temporal
+  hold-out.
+
+D8. "Explain your prediction-accuracy chart."
+  It's a parity plot. Each dot is a past estimate: x is what
+  actually happened, y is what we predicted. The diagonal is
+  perfect prediction — above means we predicted too much time,
+  below too little. On simulated machines it demonstrates the
+  validation mechanism; the numbers that count come from
+  MetroPT-3.
+
+D9. "How would you know if the model degraded in production?"
+  Every prediction is stored, so we can track error over time
+  and alarm if it drifts. That's exactly what the accuracy
+  panel does — it's the mechanism a real deployment needs.
+
+
+==============================================================
+E. HONESTY — VOLUNTEER THESE BEFORE YOU'RE ASKED
+==============================================================
+
+★ E1. "What are the limitations?"
+  Four, openly. Per-component RUL on MetroPT is the machine-
+  level prediction applied to each component, because the
+  dataset has no per-component failure data. RUL point accuracy
+  is weak with two training failures. There's no automated test
+  suite. And the browser writes directly to the database, which
+  is fine for a prototype but not for deployment.
+
+★ E2. "Is the 'days remaining' on simulated machines ML?"
+  No, and it's labelled as such in the UI. It's degradation-
+  trend extrapolation: health margin divided by current decline
+  rate — a standard industrial prognosis method. We removed a
+  neural network that used to do this, because it trained on
+  labels generated from our own formula, so it could only learn
+  to repeat that formula. We deliberately don't use ML where it
+  can't be validated.
+
+E3. "Anything in the app that's just presentation?"
+  The risk-to-days mapping in the classifier path is a defined
+  heuristic, not learned — we call it an indicative horizon.
+
+E4. "Would you deploy this tomorrow?"
+  No. It's a validated prototype of the methodology. A real
+  deployment needs server-side ingestion, access control on
+  writes, a test suite, and months of shadow-mode operation
+  before anyone trusts an alarm.
+
+
+==============================================================
+F. ARCHITECTURE & ENGINEERING
+==============================================================
+
+F1. "Describe your architecture."
+  React + Vite front end; Supabase (Postgres, Auth, Realtime)
+  as the backend; a Python FastAPI service for machine
+  learning; and an offline training pipeline that produces the
+  model artefacts the API serves.
+
+F2. "Why Supabase?"
+  Managed Postgres with authentication and realtime
+  subscriptions out of the box, which let us push live sensor
+  updates to the UI without building a socket layer.
+
+F3. "Why a separate Python service instead of doing ML in JS?"
+  scikit-learn has no serious JavaScript equivalent, and
+  keeping training and serving in the same language avoids
+  reimplementation bugs. It also mirrors real deployments,
+  where models are served behind an API.
+
+★ F4. "What happens when you connect real sensors?"
+  They replace the simulator at one seam — the write pipeline.
+  Everything downstream — ML, alerting, validation, the
+  dashboard — is unchanged, because it only reads the database.
+  Detection works within a week of healthy data; supervised
+  prediction becomes possible once real failures accumulate in
+  the alarm log.
+
+F5. "How does the digital twin work?"
+  Three.js models built from primitives, so nothing external
+  can fail to load. Preset machines have hand-built models;
+  custom machines generate one from their component list, with
+  each part's shape inferred from its name. Parts are coloured
+  by live health and pulse when failing.
+
+F6. "Is it secure?"
+  Partially. Authentication and role-based routing are in
+  place, and row-level security is enabled. But the browser
+  writes sensor data directly with an anonymous key — a real
+  deployment needs a server-side ingestion endpoint. We know
+  this and it's in future work.
+
+F7. "How does it scale?"
+  We haven't load-tested it. Honestly: unknown beyond a handful
+  of machines and users. Readings are pruned after 24 hours to
+  stay within the free tier, which is a deliberate constraint,
+  not a design limit.
+
+
+==============================================================
+G. UI / UX
+==============================================================
+
+G1. "Who are the users?"
+  Two roles. Technicians see the dashboard, machine detail, QR
+  scanning and maintenance completion. Admins additionally get
+  the simulator, machine management and emergency broadcast.
+
+G2. "Why does the app work on a tablet?"
+  Because maintenance happens on the floor, not at a desk. All
+  touch targets are at least 44 pixels, the layout reflows, and
+  the 3D twin uses two-finger rotation so one finger still
+  scrolls the page.
+
+G3. "Why the QR codes?"
+  A technician standing at a machine scans it and lands on that
+  machine's page — no searching a list while wearing gloves.
+
+G4. "What is the manual viewer for?"
+  Admins upload the machine's PDF manual; technicians search it
+  by text and jump to the matching page. We extract the text
+  with pdf.js so search works in every browser.
+
+
+==============================================================
+H. HARD / TRICK QUESTIONS
+==============================================================
+
+★ H1. "Couldn't you do all this with simple thresholds?"
+  Thresholds catch a single sensor crossing a line — that's
+  reactive, and it's already in the system as alerts. The
+  detector flags unusual COMBINATIONS before any single sensor
+  breaches anything. On MetroPT-3 that gave 51 hours of warning
+  where thresholds gave none.
+
+H2. "Your model is trained on one machine. Is it general?"
+  No, and that's correct behaviour — each machine trains its
+  own model on its own normal. A universal PdM model across
+  different equipment isn't realistic; what generalises is the
+  method, not the weights.
+
+H3. "What if the machine's normal changes — new load, new season?"
+  Then the model must be retrained; otherwise it flags a
+  legitimate change as a fault. That's called concept drift.
+  Production systems retrain on a schedule and monitor error
+  over time, which is what our accuracy panel is designed for.
+
+H4. "How much did AI help you write this?"
+  [Answer honestly per your institution's policy. Be ready to
+  explain any file you're asked about, line by line — that's
+  the real test being applied.]
+
+H5. "What's novel here?"
+  Not the algorithms — they're standard. The contribution is
+  the evaluation protocol: temporal splits, unseen failure
+  types, calibrated uncertainty, false-alarm rates reported
+  alongside detections, and an explicit boundary between what's
+  validated and what's demonstrated.
+
+
+==============================================================
+NUMBERS TO MEMORISE (only these six)
+==============================================================
+  1. AUC 0.906        detector, unseen real failures
+  2. 51 hours         oil-leak warning before repair
+  3. 1.3%             false alarms
+  4. ZERO labels      detector trained on healthy data only
+  5. F1 0.571 / AUC 0.973   AI4I, chronological split
+  6. MAE 4.37 d / 78% coverage   RUL
+
+  If you remember two: 0.91 AUC and 51 hours.
+
+
+==============================================================
+CLOSING STATEMENT
+==============================================================
+"To summarise: this is a working predictive-maintenance
+platform whose core result is validated on real industrial
+data, using a strict temporal evaluation with calibrated
+uncertainty, and an explicit boundary between what we've
+validated and what we've demonstrated. The next step is
+connecting real sensors — which the architecture is designed
+to accept at a single seam."
+==============================================================

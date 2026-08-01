@@ -156,12 +156,156 @@ function buildCompressor() {
   return { group: g, parts, spins }
 }
 
+// ── Generic builder: ANY machine, generated from its components ──
+// Custom machines (admin-created, dataset machines) have no hand-drawn
+// model, so we generate one: each component becomes a 3D part whose
+// SHAPE is inferred from its name, laid out on a skid and labelled.
+// This means a twin exists the moment a machine is created.
+
+// name keyword → how to draw it
+function shapeForComponent(name) {
+  const n = (name || '').toLowerCase()
+  if (/(fan|blower|impeller)/.test(n))            return 'fan'
+  if (/(motor|drive|spindle)/.test(n))            return 'motor'
+  if (/(tank|reservoir|vessel|receiver)/.test(n)) return 'tank'
+  if (/(pump|compressor)/.test(n))                return 'pump'
+  if (/(filter|cartridge|strainer)/.test(n))      return 'filter'
+  if (/(belt|conveyor|chain)/.test(n))            return 'belt'
+  if (/(bearing|roller|wheel|shaft)/.test(n))     return 'bearing'
+  if (/(cylinder|piston|ram|actuator)/.test(n))   return 'cylinder'
+  if (/(valve|manifold)/.test(n))                 return 'valve'
+  if (/(panel|vfd|controller|sensor|board)/.test(n)) return 'panel'
+  return 'generic'
+}
+
+// Text label that always faces the camera
+function makeLabel(text) {
+  const pad = 8, font = 34
+  const c = document.createElement('canvas')
+  const ctx = c.getContext('2d')
+  ctx.font = `600 ${font}px system-ui, sans-serif`
+  const w = Math.ceil(ctx.measureText(text).width) + pad * 2
+  c.width = w; c.height = font + pad * 2
+  const c2 = c.getContext('2d')
+  c2.font = `600 ${font}px system-ui, sans-serif`
+  c2.fillStyle = 'rgba(255,255,255,0.92)'
+  c2.fillRect(0, 0, c.width, c.height)
+  c2.fillStyle = '#374151'
+  c2.textBaseline = 'middle'
+  c2.fillText(text, pad, c.height / 2)
+
+  const tex = new THREE.CanvasTexture(c)
+  tex.minFilter = THREE.LinearFilter
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }))
+  const scale = 0.0055
+  sprite.scale.set(c.width * scale, c.height * scale, 1)
+  return sprite
+}
+
+function buildGeneric(components = []) {
+  const g = new THREE.Group()
+  const parts = {}, spins = []
+  const reg = (name, m) => { (parts[name] = parts[name] || []).push(m); return m }
+
+  const list = components.length ? components : [{ name: 'Machine' }]
+  const cols = Math.ceil(Math.sqrt(list.length))
+  const rows = Math.ceil(list.length / cols)
+  const SP = 2.0                                     // spacing between parts
+  const w = cols * SP + 1.0, d = rows * SP + 1.0
+
+  // skid / base frame
+  const skid = box(w, 0.25, d); skid.position.y = 0.125; g.add(skid)
+  const edge = new THREE.Mesh(
+    new THREE.BoxGeometry(w, 0.06, d),
+    new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.6 }))
+  edge.position.y = 0.26; g.add(edge)
+
+  list.forEach((c, i) => {
+    const col = i % cols, row = Math.floor(i / cols)
+    const x = (col - (cols - 1) / 2) * SP
+    const z = (row - (rows - 1) / 2) * SP
+    const kind = shapeForComponent(c.name)
+    let top = 1.0                                    // where to float the label
+
+    if (kind === 'fan') {
+      const fan = new THREE.Group()
+      for (let b = 0; b < 5; b++) {
+        const blade = reg(c.name, box(0.06, 0.5, 0.16))
+        blade.position.y = 0.28
+        const holder = new THREE.Group(); holder.add(blade)
+        holder.rotation.x = (b / 5) * Math.PI * 2
+        fan.add(holder)
+      }
+      fan.add(reg(c.name, cyl(0.12, 0.12, 0.12)))
+      fan.position.set(x, 0.95, z); g.add(fan)
+      spins.push({ mesh: fan, axis: 'y', speed: 8 })
+      top = 1.6
+    } else if (kind === 'motor') {
+      const m = reg(c.name, cyl(0.36, 0.36, 0.95))
+      m.rotation.z = Math.PI / 2; m.position.set(x, 0.75, z); g.add(m)
+      const shaft = cyl(0.07, 0.07, 0.4); shaft.rotation.z = Math.PI / 2
+      shaft.position.set(x + 0.65, 0.75, z); g.add(shaft)
+      top = 1.35
+    } else if (kind === 'tank') {
+      const t = reg(c.name, cyl(0.45, 0.45, 1.2))
+      t.position.set(x, 0.95, z); g.add(t)
+      const capT = reg(c.name, new THREE.Mesh(new THREE.SphereGeometry(0.45, 20, 12), mat()))
+      capT.position.set(x, 1.55, z); g.add(capT)
+      top = 2.1
+    } else if (kind === 'pump') {
+      const p = reg(c.name, box(0.75, 0.6, 0.7)); p.position.set(x, 0.6, z); g.add(p)
+      const inlet = cyl(0.09, 0.09, 0.5); inlet.rotation.z = Math.PI / 2
+      inlet.position.set(x + 0.55, 0.6, z); g.add(inlet)
+      top = 1.15
+    } else if (kind === 'filter') {
+      const f = reg(c.name, cyl(0.22, 0.22, 0.8)); f.position.set(x, 0.7, z); g.add(f)
+      top = 1.25
+    } else if (kind === 'belt') {
+      const b = reg(c.name, box(1.5, 0.08, 0.6)); b.position.set(x, 0.75, z); g.add(b)
+      for (const dx of [-0.7, 0.7]) {
+        const r = reg(c.name, cyl(0.16, 0.16, 0.65))
+        r.rotation.x = Math.PI / 2; r.position.set(x + dx, 0.68, z); g.add(r)
+        spins.push({ mesh: r, axis: 'y', speed: 5 })
+      }
+      top = 1.2
+    } else if (kind === 'bearing') {
+      const b = reg(c.name, new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.12, 12, 28), mat()))
+      b.position.set(x, 0.75, z); g.add(b)
+      spins.push({ mesh: b, axis: 'z', speed: 4 })
+      top = 1.25
+    } else if (kind === 'cylinder') {
+      const body = reg(c.name, cyl(0.28, 0.28, 0.9)); body.position.set(x, 0.85, z); g.add(body)
+      const rod = reg(c.name, cyl(0.12, 0.12, 0.6)); rod.position.set(x, 0.3, z); g.add(rod)
+      top = 1.45
+    } else if (kind === 'valve') {
+      const v = reg(c.name, box(0.45, 0.45, 0.45)); v.position.set(x, 0.5, z); g.add(v)
+      const stem = reg(c.name, cyl(0.07, 0.07, 0.35)); stem.position.set(x, 0.85, z); g.add(stem)
+      top = 1.2
+    } else if (kind === 'panel') {
+      const p = reg(c.name, box(0.6, 0.9, 0.22)); p.position.set(x, 0.75, z); g.add(p)
+      top = 1.3
+    } else {
+      const b = reg(c.name, box(0.8, 0.8, 0.8)); b.position.set(x, 0.65, z); g.add(b)
+      top = 1.2
+    }
+
+    if (c.name) {
+      const label = makeLabel(c.name)
+      label.position.set(x, top + 0.25, z)
+      g.add(label)
+    }
+  })
+
+  return { group: g, parts, spins }
+}
+
 const BUILDERS = {
   conveyor_drive: buildConveyor,
   hydraulic_press: buildHydraulicPress,
   air_compressor: buildCompressor,
 }
 
+// Kept for callers that used it; every type renders in 3D now.
 export const TWIN3D_TYPES = Object.keys(BUILDERS)
 
 // ── Component ────────────────────────────────────────────────
@@ -174,10 +318,15 @@ export default function Twin3D({ type, components = [], running = false, height 
   const [failed, setFailed] = useState(false)
   stateRef.current = { components, running }
 
+  // Preset types have a hand-built model; anything else (custom /
+  // dataset machines) is generated from its component list.
+  const compKey = components.map(c => c.name).join('|')
+
   useEffect(() => {
     const el = mountRef.current
-    const builder = BUILDERS[type]
-    if (!el || !builder) return
+    if (!el) return
+    const preset = BUILDERS[type]
+    const builder = preset || (() => buildGeneric(stateRef.current.components))
 
     let renderer
     try {
@@ -213,6 +362,9 @@ export default function Twin3D({ type, components = [], running = false, height 
       controls.minDistance = 4
       controls.maxDistance = 16
       controls.maxPolarAngle = Math.PI / 2.05
+      // On tablets, one finger must scroll the PAGE — otherwise the canvas
+      // traps the gesture and the page feels stuck. Two fingers rotate/zoom.
+      controls.touches = { ONE: null, TWO: THREE.TOUCH.DOLLY_ROTATE }
     } else {
       camera.lookAt(0, 1.4, 0)
       renderer.domElement.style.pointerEvents = 'none'
@@ -279,13 +431,17 @@ export default function Twin3D({ type, components = [], running = false, height 
       renderer.dispose()
       scene.traverse(o => {
         if (o.geometry) o.geometry.dispose()
-        if (o.material) o.material.dispose()
+        if (o.material) {
+          if (o.material.map) o.material.map.dispose()   // label textures
+          o.material.dispose()
+        }
       })
       if (renderer.domElement.parentNode === el) el.removeChild(renderer.domElement)
     }
-  }, [type, height, interactive, spin])
+    // compKey: rebuild the generated model if the component list changes
+  }, [type, height, interactive, spin, compKey])
 
-  if (failed || !BUILDERS[type]) return null
+  if (failed) return null
 
   return (
     <div>
@@ -302,7 +458,10 @@ export default function Twin3D({ type, components = [], running = false, height 
             </span>
           )
         })}
-        <span className="ml-auto text-gray-400">drag to rotate · scroll to zoom</span>
+        <span className="ml-auto text-gray-400">
+          drag to rotate · scroll to zoom
+          <span className="hidden [@media(pointer:coarse)]:inline"> · two fingers on touch</span>
+        </span>
       </div>
       )}
     </div>

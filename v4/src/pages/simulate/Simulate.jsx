@@ -12,6 +12,15 @@ import DemoPanel from '../../components/machine/DemoPanel'
 import Spinner from '../../components/ui/Spinner'
 import { Play, Pause, Activity, RotateCcw, DatabaseZap, Download, Presentation } from 'lucide-react'
 
+// Fixed, sensible defaults — these used to be dropdowns in the toolbar.
+// GEN_INTERVAL_MIN: the DB prunes readings older than 24h, so we add
+// "normal" data by sampling finer inside that window. 2 min = 720 points,
+// which suits the detector (it trains on up to ~1000).
+// EXPORT_HORIZON_MIN: a row is labelled "failure" if a critical alert
+// follows within this many minutes.
+const GEN_INTERVAL_MIN = 2
+const EXPORT_HORIZON_MIN = 10
+
 export default function Simulate() {
   const [machines, setMachines]       = useState([])
   const [selectedId, setSelectedId]   = useState('')
@@ -22,14 +31,8 @@ export default function Simulate() {
   const [liveRuntime, setLiveRuntime] = useState(null)
   const [showReset, setShowReset]     = useState(false)
   const [genMsg, setGenMsg]           = useState('')
-  const [horizonMin, setHorizonMin]   = useState(10)  // export label horizon
   const [exportMsg, setExportMsg]     = useState('')
   const [demoMode, setDemoMode]       = useState(false)
-  // Healthy-history resolution. The DB prunes readings older than 24h, so we
-  // add data by sampling FINER inside the 24h window, not by extending it.
-  // The ML server trains on up to ~1000 time points, so 2-min (720) is a good
-  // default — 7.5x more "normal" for the detector than the old 15-min (96).
-  const [genIntervalMin, setGenIntervalMin] = useState(2)
 
   // Load machine list
   useEffect(() => {
@@ -84,8 +87,8 @@ export default function Simulate() {
   async function handleGenerate() {
     setGenMsg('Generating…')
     try {
-      const count = await generateHistory(selectedId, 24, genIntervalMin)
-      const points = Math.round((24 * 60) / genIntervalMin)
+      const count = await generateHistory(selectedId, 24, GEN_INTERVAL_MIN)
+      const points = Math.round((24 * 60) / GEN_INTERVAL_MIN)
       setGenMsg(`Generated ${count?.toLocaleString?.() || ''} readings — ${points} time points per sensor`)
       setTimeout(() => setGenMsg(''), 5000)
     } catch {
@@ -97,8 +100,8 @@ export default function Simulate() {
   async function handleExport() {
     setExportMsg('Exporting…')
     try {
-      const r = await exportMachineDataset(bundle.machine, horizonMin)
-      setExportMsg(`Exported ${r.rows.toLocaleString()} rows · ${(r.failureRate * 100).toFixed(1)}% labelled failure (${horizonMin} min horizon)`)
+      const r = await exportMachineDataset(bundle.machine, EXPORT_HORIZON_MIN)
+      setExportMsg(`Exported ${r.rows.toLocaleString()} rows · ${(r.failureRate * 100).toFixed(1)}% labelled failure (${EXPORT_HORIZON_MIN} min horizon)`)
       setTimeout(() => setExportMsg(''), 6000)
     } catch (e) {
       setExportMsg(`Failed — ${e.message}`)
@@ -111,10 +114,10 @@ export default function Simulate() {
     sim.stop()
     await resetMachine(selectedId, true, true)   // wipe history + reset runtime
     sim.resetState()
-    const count = await generateHistory(selectedId, 24, genIntervalMin)
+    const count = await generateHistory(selectedId, 24, GEN_INTERVAL_MIN)
     await reloadBundle()
     return count
-  }, [selectedId, sim, reloadBundle, genIntervalMin])
+  }, [selectedId, sim, reloadBundle])
 
   if (loading) return <Spinner full label="Loading machines…" />
 
@@ -128,12 +131,14 @@ export default function Simulate() {
     <div>
       <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900 mb-1">Simulator</h1>
-          <p className="text-gray-500">Stream live sensor data and inject machine-specific defects.</p>
+          <h1 className="page-title">Simulator</h1>
+          <p className="page-sub">Stream live sensor data and inject machine-specific defects.</p>
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
+
+        {/* Primary controls: pick a machine, run it, or run the guided demo */}
+        <div className="flex items-center gap-2 flex-wrap">
           <select value={selectedId} onChange={e => setSelectedId(e.target.value)}
-            className="select w-56">
+            className="select w-52">
             {machines.map(m => (
               <option key={m.id} value={m.id}>{m.name}</option>
             ))}
@@ -143,46 +148,33 @@ export default function Simulate() {
             className={sim.running ? 'btn-danger flex items-center gap-2' : 'btn-primary flex items-center gap-2'}>
             {sim.running ? <><Pause className="w-4 h-4" /> Pause</> : <><Play className="w-4 h-4" /> Play</>}
           </button>
-          <button onClick={() => { sim.stop(); setShowReset(true) }}
-            className="btn-secondary flex items-center gap-2">
-            <RotateCcw className="w-4 h-4" /> Reset
-          </button>
+
           <button onClick={() => setDemoMode(d => !d)}
             className={demoMode ? 'btn-primary flex items-center gap-2' : 'btn-secondary flex items-center gap-2'}
             title="Guided, in-order steps for presenting">
             <Presentation className="w-4 h-4" /> Demo mode
           </button>
-          {/* Healthy history: 24h window, choosable sampling density */}
-          <div className="flex items-center gap-1">
-            <select value={genIntervalMin} onChange={e => setGenIntervalMin(Number(e.target.value))}
-              className="select w-32" title="Sampling interval — smaller means more normal data for the detector">
-              <option value={15}>15 min · 96 pts</option>
-              <option value={5}>5 min · 288 pts</option>
-              <option value={2}>2 min · 720 pts</option>
-              <option value={1}>1 min · 1440 pts</option>
-            </select>
-            <button onClick={handleGenerate} disabled={genMsg === 'Generating…'}
-              className="btn-secondary flex items-center gap-2"
-              title="Wipe and regenerate 24h of HEALTHY history at the chosen density">
-              <DatabaseZap className={`w-4 h-4 ${genMsg === 'Generating…' ? 'animate-pulse' : ''}`} /> Generate 24h
-            </button>
-          </div>
-
-          {/* Export labelled dataset (failure = critical alert within horizon) */}
-          <div className="flex items-center gap-1">
-            <select value={horizonMin} onChange={e => setHorizonMin(Number(e.target.value))}
-              className="select w-24" title="Label horizon — failure within the next N minutes">
-              <option value={5}>5 min</option>
-              <option value={10}>10 min</option>
-              <option value={30}>30 min</option>
-            </select>
-            <button onClick={handleExport} disabled={exportMsg === 'Exporting…'}
-              className="btn-secondary flex items-center gap-2"
-              title="Download this machine's history as a labelled CSV (trainable in the Dataset Lab)">
-              <Download className={`w-4 h-4 ${exportMsg === 'Exporting…' ? 'animate-pulse' : ''}`} /> Export CSV
-            </button>
-          </div>
         </div>
+      </div>
+
+      {/* Secondary tools — deliberately quieter than the primary controls */}
+      <div className="flex items-center gap-1 flex-wrap mb-6">
+        <span className="text-xs text-gray-400 uppercase tracking-wide mr-2">Tools</span>
+        <button onClick={() => { sim.stop(); setShowReset(true) }} className="link-btn">
+          <RotateCcw className="w-4 h-4" /> Reset machine
+        </button>
+        <button onClick={handleGenerate} disabled={genMsg === 'Generating…'}
+          className="link-btn"
+          title="Wipe and regenerate 24h of healthy history">
+          <DatabaseZap className={`w-4 h-4 ${genMsg === 'Generating…' ? 'animate-pulse' : ''}`} />
+          {genMsg === 'Generating…' ? 'Generating…' : 'Generate 24h history'}
+        </button>
+        <button onClick={handleExport} disabled={exportMsg === 'Exporting…'}
+          className="link-btn"
+          title="Download this machine's history as a labelled CSV for the Dataset Lab">
+          <Download className={`w-4 h-4 ${exportMsg === 'Exporting…' ? 'animate-pulse' : ''}`} />
+          {exportMsg === 'Exporting…' ? 'Exporting…' : 'Export dataset'}
+        </button>
       </div>
 
       {/* Export feedback */}

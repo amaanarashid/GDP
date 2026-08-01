@@ -71,6 +71,9 @@ export function componentPriority({ component, sensors, readingsBySensor, rul })
     // prediction came from a point-estimate model)
     low: rul?.low ?? null,
     high: rul?.high ?? null,
+    // 'ml-server' (real-data quantile model) | 'trend-extrapolation'
+    // Surfaced in the UI so it's always clear which number is which.
+    source: rul?.source ?? null,
   }
 }
 

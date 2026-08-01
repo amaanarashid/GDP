@@ -19,6 +19,12 @@ project, in reading order:
                           3-day plan, the 60-second story, the 6
                           numbers, what to say per screen, Q&A,
                           and traps to avoid
+  10_viva_questions.txt   The full question bank — ~50 likely
+                          questions with model answers, grouped
+                          by topic. Read the ★ ones out loud.
+  11_demo_scenarios.txt   9 slider scenarios with measured risk
+                          figures — proves the model learned
+                          interactions, not thresholds.
 
 The one-paragraph pitch:
   Machines break down. This app watches their sensors, learns

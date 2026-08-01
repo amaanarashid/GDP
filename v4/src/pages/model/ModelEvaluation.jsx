@@ -16,6 +16,21 @@ import { evaluateRul, evaluateDetector } from '../../lib/mlServer'
 import DatasetLab from '../../components/model/DatasetLab'
 import Spinner from '../../components/ui/Spinner'
 
+// Numbered section header — makes the page read as a two-part story
+// rather than a stack of charts.
+function SectionHeading({ step, title, sub }) {
+  return (
+    <div className="flex items-start gap-3 mb-3 mt-2">
+      <span className="w-7 h-7 rounded-full bg-indigo-600 text-white text-sm font-semibold
+        flex items-center justify-center shrink-0">{step}</span>
+      <div>
+        <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+        <p className="text-xs text-gray-500 max-w-2xl">{sub}</p>
+      </div>
+    </div>
+  )
+}
+
 function MetricCard({ icon: Icon, label, value, sub }) {
   return (
     <div className="card">
@@ -69,11 +84,13 @@ export default function ModelEvaluation() {
     <div>
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-1 flex items-center gap-2">
+        <h1 className="page-title flex items-center gap-2">
           <BrainCircuit className="w-6 h-6 text-indigo-600" /> ML Model
         </h1>
-        <p className="text-gray-500 text-sm">
-          Evaluated on real data — MetroPT-3, a metro air compressor with documented failures.
+        <p className="page-sub max-w-3xl">
+          Predicting machine failures from sensor data. Train a model on any real
+          dataset below, then see how our models performed on a real industrial
+          compressor with documented failures.
         </p>
       </div>
 
@@ -86,24 +103,36 @@ export default function ModelEvaluation() {
         </div>
       )}
 
-      {/* Dataset lab: drag & drop any dataset, train live.
-          Results shown in the lab are ONLY about the dropped file. */}
+      {/* ── PART 1 ── */}
+      <SectionHeading
+        step="1"
+        title="Train on a real dataset"
+        sub="Drop in any labelled sensor data — the model is built live, then you can make a prediction with it."
+      />
+
+      {/* Results in the lab are ONLY about the dropped file. */}
       <DatasetLab />
 
-      {/* MetroPT-3 benchmark: a separate, pre-trained showcase — opened
-          explicitly so it's never mistaken for the uploaded dataset. */}
+      {/* ── PART 2 ── */}
+      <SectionHeading
+        step="2"
+        title="How we validated the models"
+        sub="Results on MetroPT-3: a real metro air compressor. Trained on the first two failures, tested on two it had never seen."
+      />
+
+      {/* Kept behind a click so it's never mistaken for the uploaded dataset. */}
       {!revealed && (
         <button onClick={reveal}
-          className="card w-full text-left hover:border-indigo-300 transition-colors mb-6 flex items-center justify-between gap-4">
+          className="card card-hover w-full text-left mb-6 flex items-center justify-between gap-4">
           <div>
             <p className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-              <Database className="w-4 h-4 text-indigo-600" /> MetroPT-3 benchmark — real data
+              <Database className="w-4 h-4 text-indigo-600" /> View benchmark results
             </p>
             <p className="text-xs text-gray-500 mt-0.5">
-              Pre-trained models evaluated on a real metro compressor with two unseen failures. Click to view.
+              Detection performance and remaining-useful-life accuracy on real failure data.
             </p>
           </div>
-          <span className="badge-blue shrink-0">View results</span>
+          <span className="badge-blue shrink-0">Show</span>
         </button>
       )}
 
@@ -131,9 +160,24 @@ export default function ModelEvaluation() {
               <h2 className="section-title mb-0">Failure detection — unseen test window</h2>
               <span className="badge-blue">{det.model_version}</span>
             </div>
-            <p className="text-xs text-gray-500 mb-4">
-              Red bands are real failures · dashed line is the alarm threshold.
+            <p className="text-xs text-gray-500 mb-3">
+              The model scores how unusual the machine looks, minute by minute. It was
+              trained only on healthy data — it has never seen a failure.
             </p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 text-[11px]">
+              <span className="flex items-center gap-1.5 text-gray-600">
+                <span className="w-3 h-0.5 bg-indigo-500" /> anomaly score
+              </span>
+              <span className="flex items-center gap-1.5 text-gray-600">
+                <span className="w-3 h-0.5 border-t-2 border-dashed border-yellow-500" /> alarm threshold
+              </span>
+              <span className="flex items-center gap-1.5 text-gray-600">
+                <span className="w-3 h-3 bg-red-400/30 border border-red-400" /> real failure period
+              </span>
+              <span className="ml-auto text-gray-500 font-medium">
+                ↑ Look for the line crossing the threshold inside the red bands
+              </span>
+            </div>
             <ResponsiveContainer width="100%" height={300}>
               <ComposedChart data={det.series} margin={{ top: 5, right: 10, left: -15, bottom: 0 }}>
                 <XAxis dataKey="t" type="number" domain={['dataMin', 'dataMax']}
@@ -166,8 +210,10 @@ export default function ModelEvaluation() {
             <h2 className="section-title mb-0">Remaining useful life</h2>
             <span className="badge-blue">{rul.model_version}</span>
           </div>
-          <p className="text-xs text-gray-500 mb-4">
-            P50 prediction with a calibrated 80% interval (shaded) · MAE {rul.metrics.mae_days} days.
+          <p className="text-xs text-gray-500 mb-3">
+            How many days until failure. Green is the truth, indigo is the prediction, and the
+            shaded band is the 80% confidence range — we report a range rather than a single
+            number because a precise figure would overstate what the data supports.
           </p>
           <ResponsiveContainer width="100%" height={280}>
             <ComposedChart data={rul.series.map(d => ({ ...d, band: [d.low, d.high] }))}

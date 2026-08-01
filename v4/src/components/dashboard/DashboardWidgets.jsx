@@ -10,7 +10,7 @@ export function StatCard({ label, value, sub, accent = 'white' }) {
     red:    'text-red-600',
   }[accent]
   return (
-    <div className="card">
+    <div className="card fade-in">
       <p className="stat-label">{label}</p>
       <p className={`stat-value ${accentClass}`}>{value}</p>
       {sub && <p className="text-xs text-gray-500 mt-0.5">{sub}</p>}

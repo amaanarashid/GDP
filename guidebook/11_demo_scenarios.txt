@@ -1,0 +1,84 @@
+==============================================================
+11 — DEMO SCENARIOS: PROVING THE MODEL LEARNED INTERACTIONS
+Predict-maintenance panel, ML Model page, AI4I 2020 dataset
+==============================================================
+
+All figures below were measured against the live model. If you
+retrain, they should reproduce within a percent or two.
+
+Baseline (dataset averages):
+  Air temperature 300 K · Process temperature 310 K
+  Rotational speed 1539 rpm · Torque 40 Nm · Tool wear 108 min
+
+
+THE SCENARIO TABLE
+------------------
+ #  SCENARIO                SET THE SLIDERS TO           RISK    TIER
+ 1  Healthy baseline        all at average               0.0%    healthy
+ 2  Low speed alone         speed 1200                   1.5%    healthy
+ 3  Tool worn out           wear 240                    21.0%    watch
+ 4  Heat dissipation risk   air 302, proc 306, spd 1300 25.9%    watch
+ 5  Power too low           torque 12, speed 1250       21.2%    watch
+ 6  High torque alone       torque 76                   60.4%    warning
+ 7  Power too high          torque 65, speed 2600       51.6%    warning
+ 8  Everything at maximum   every slider fully right    42.5%    watch
+ 9  OVERSTRAIN              spd 1261, torque 71, wear 240 87.4%  critical
+
+
+THE TWO COMPARISONS THAT WIN THE ARGUMENT
+-----------------------------------------
+★ ROWS 8 vs 9 — the surprise
+  Everything at maximum scores 42.5%. The overstrain case, where
+  SPEED IS LOWER, scores 87.4%.
+  SAY: "Every individual reading is higher in the first case, yet
+  the model is twice as worried about the second. It can't be
+  reading thresholds — it learned that high torque AGAINST low
+  speed is overstrain, while high torque WITH high speed is just
+  a machine working hard."
+
+★ ROWS 2 + 3 vs 9 — the whole is more than the sum
+  Low speed alone 1.5%. Worn tool alone 21%. Both together with
+  high torque: 87.4%.
+  SAY: "1.5% plus 21% doesn't make 87%. The risk lives in the
+  combination — exactly what a rules-based system cannot capture."
+
+
+WHY THESE SCENARIOS EXIST (the physics in AI4I)
+-----------------------------------------------
+The dataset documents five failure modes, and four of them are
+COMBINATIONS — which is the whole reason a model is needed:
+
+  Tool wear failure     tool used 200-240 minutes
+  Heat dissipation      air/process gap < 8.6 K AND speed < 1380
+  Power failure         torque x speed outside 3.5-9 kW
+  Overstrain            tool wear x torque above a threshold
+  Random                0.1% baseline chance
+
+Power reference: P = torque x speed x 2*pi/60
+  healthy baseline   6.4 kW   (inside the safe band)
+  power too low      1.6 kW   (below)
+  power too high    17.7 kW   (above)
+  everything maxed  23.2 kW   (far above, but coherent)
+
+
+THE 30-SECOND DEMO
+------------------
+  1. Click "Healthy machine" -> Predict -> 0%, no action needed
+  2. Click "Worn / overloaded" -> Predict -> 87%, service immediately
+  3. Point at the sliders: "and notice speed went DOWN, not up.
+     High torque against low speed is overstrain. The model learned
+     that interaction from 10,000 examples; a threshold on any
+     single sensor would have missed it entirely."
+
+  If you have another 15 seconds, do scenario 8 as the punchline:
+  drag everything to maximum, predict, and show it's only 42.5%.
+
+
+IF ASKED "COULD YOU JUST USE IF-STATEMENTS?"
+--------------------------------------------
+"You could encode these four rules if you already knew them — but
+they came from the dataset's documentation. On a real machine
+nobody hands you the failure physics; that's what the model
+recovers from data. And the feature-space plot shows it: failures
+occupy a region, not a corner."
+==============================================================

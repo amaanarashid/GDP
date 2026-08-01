@@ -22,9 +22,9 @@ export default function AppLayout() {
   const closeNav = () => setNavOpen(false)
 
   return (
-    <div className="min-h-screen lg:flex">
+    <div className="min-h-screen md:flex">
       {/* Mobile top bar */}
-      <header className="lg:hidden sticky top-0 z-40 flex items-center gap-3 bg-white/95 backdrop-blur border-b border-gray-200 px-4 py-3">
+      <header className="md:hidden sticky top-0 z-40 flex items-center gap-3 bg-white/95 backdrop-blur border-b border-gray-200 px-4 py-3">
         <button onClick={() => setNavOpen(true)} className="icon-btn" aria-label="Open menu">
           <Menu className="w-5 h-5" />
         </button>
@@ -36,18 +36,18 @@ export default function AppLayout() {
 
       {/* Backdrop (mobile, when nav open) */}
       {navOpen && (
-        <div className="lg:hidden fixed inset-0 z-40 bg-black/60" onClick={closeNav} aria-hidden="true" />
+        <div className="md:hidden fixed inset-0 z-40 bg-black/60" onClick={closeNav} aria-hidden="true" />
       )}
 
       {/* Sidebar — fixed on desktop, slide-over on mobile */}
       <aside className={`w-60 bg-white border-r border-gray-200 flex flex-col fixed h-screen z-50
-        transition-transform duration-200 lg:translate-x-0 ${navOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        transition-transform duration-200 md:translate-x-0 ${navOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="px-5 py-5 flex items-center gap-2.5 border-b border-gray-200">
           <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
             <Activity className="w-5 h-5 text-white" />
           </div>
           <span className="font-semibold text-gray-900 text-sm leading-tight flex-1">AGV<br/>Maintenance</span>
-          <button onClick={closeNav} className="icon-btn lg:hidden" aria-label="Close menu">
+          <button onClick={closeNav} className="icon-btn md:hidden" aria-label="Close menu">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -89,7 +89,7 @@ export default function AppLayout() {
       </aside>
 
       {/* Main */}
-      <main className="flex-1 lg:ml-60 p-4 lg:p-6 max-w-[1400px] w-full mx-auto">
+      <main className="flex-1 md:ml-60 p-4 md:p-6 max-w-[1400px] w-full mx-auto">
         <EmergencyBanner />
         <Outlet />
       </main>

@@ -33,7 +33,7 @@ import numpy as np
 import joblib, os, io, json
 from sklearn.ensemble import RandomForestClassifier, IsolationForest
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, roc_curve
+from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, roc_curve, confusion_matrix
 from sklearn.preprocessing import StandardScaler
 from dotenv import load_dotenv
 
@@ -198,6 +198,7 @@ async def train(file: UploadFile = File(...), machine_id: str = Form(...)):
         strat = y if np.bincount(y.astype(int)).min() >= 2 else None
         X_tr, X_te, y_tr, y_te = train_test_split(Xs, y, test_size=0.2, random_state=42, stratify=strat)
         split_kind = "random-stratified (chronological was degenerate)"
+        X_te_raw = None          # rows were reshuffled — no longer aligned with y_te
     else:
         split_kind = f"chronological (last 20% held out, ordered by {order_col or 'row order'})"
 
@@ -219,6 +220,11 @@ async def train(file: UploadFile = File(...), machine_id: str = Form(...)):
         "failure_rate": round(float(y.mean()), 4),
         "split": split_kind,
     }
+
+    # Confusion matrix — turns the percentages into actual machine counts,
+    # which is far easier to reason about than precision/recall alone.
+    tn, fp, fn, tp = confusion_matrix(y_te, pred, labels=[0, 1]).ravel()
+    metrics["confusion"] = {"tn": int(tn), "fp": int(fp), "fn": int(fn), "tp": int(tp)}
 
     # Feature importance (which sensor drives failure)
     importance = dict(sorted(
@@ -250,9 +256,35 @@ async def train(file: UploadFile = File(...), machine_id: str = Form(...)):
                  "label": label_col, "metrics": metrics, "importance": importance},
                 f"{MODEL_DIR}/{machine_id}.joblib")
 
+    # 3. Feature-space scatter over the TWO most important sensors.
+    #    This is the most intuitive plot in the app: it shows that failures
+    #    occupy a REGION defined by a combination of readings, rather than
+    #    simply "high value = bad", which is what most people assume.
+    scatter = {}
+    try:
+        top2 = list(importance.keys())[:2]
+        if len(top2) == 2 and X_te_raw is not None:
+            ix, iy = sensors.index(top2[0]), sensors.index(top2[1])
+            raw = X_te_raw
+            n2 = len(raw)
+            step2 = max(1, n2 // 600)
+            keep2 = sorted(set(range(0, n2, step2)) | {i for i in range(n2) if y_te[i] == 1})
+            scatter = {
+                "x_label": top2[0], "y_label": top2[1],
+                "points": [
+                    {"x": round(float(raw[i][ix]), 2),
+                     "y": round(float(raw[i][iy]), 2),
+                     "failed": int(y_te[i]),
+                     "risk": round(float(proba[i]), 3)}
+                    for i in keep2
+                ],
+            }
+    except Exception:
+        scatter = {}
+
     return {"status": "trained", "sensors": sensors, "label_column": label_col,
             "metrics": metrics, "importance": importance,
-            "risk_series": risk_series, "roc": roc_points}
+            "risk_series": risk_series, "roc": roc_points, "scatter": scatter}
 
 
 # ─────────────────────────────────────────────────────────
@@ -295,16 +327,24 @@ async def predict(req: PredictReq):
 
 def fetch_machine_matrix(machine_id: str, limit: int = 1000):
     """Pull recent sensor readings from Supabase and pivot into a
-    matrix: rows = time points, columns = sensors."""
+    matrix: rows = time points, columns = sensors.
+
+    Columns are keyed by sensor ID, NOT by name. Machines legitimately
+    have several sensors with the same name on different components
+    (the hydraulic press has three called "Temperature"). Keying by name
+    silently averaged them into one column, so a fault on one component
+    was diluted to nothing and the detector never reacted.
+    """
     client = sb()
-    # sensors for this machine
-    sres = client.table("sensors").select("id,name").eq("machine_id", machine_id).execute()
+    sres = (client.table("sensors")
+            .select("id,name,critical_threshold")
+            .eq("machine_id", machine_id).execute())
     sensors = sres.data or []
     if not sensors:
         raise HTTPException(404, "No sensors for this machine.")
     sid_to_name = {s["id"]: s["name"] for s in sensors}
+    sid_to_crit = {s["id"]: s.get("critical_threshold") for s in sensors}
 
-    # readings for those sensors
     ids = list(sid_to_name.keys())
     rres = (client.table("sensor_readings")
             .select("sensor_id,value,timestamp")
@@ -317,11 +357,10 @@ def fetch_machine_matrix(machine_id: str, limit: int = 1000):
         raise HTTPException(404, "No sensor readings found. Run the simulator first.")
 
     df = pd.DataFrame(rows)
-    df["name"] = df["sensor_id"].map(sid_to_name)
-    # pivot: average per timestamp+sensor, then wide
-    pivot = df.pivot_table(index="timestamp", columns="name", values="value", aggfunc="mean")
-    pivot = pivot.sort_index().fillna(method="ffill").fillna(method="bfill").dropna()
-    return pivot, list(sid_to_name.values())
+    # pivot on sensor_id — one column per physical sensor
+    pivot = df.pivot_table(index="timestamp", columns="sensor_id", values="value", aggfunc="mean")
+    pivot = pivot.sort_index().ffill().bfill().dropna(axis=1, how="all").dropna()
+    return pivot, sid_to_name, sid_to_crit
 
 
 class MachineReq(BaseModel):
@@ -330,7 +369,7 @@ class MachineReq(BaseModel):
 @app.post("/train-anomaly")
 async def train_anomaly(req: MachineReq):
     """Learn normal operating behaviour for a machine from its DB history."""
-    pivot, names = fetch_machine_matrix(req.machine_id)
+    pivot, sid_to_name, sid_to_crit = fetch_machine_matrix(req.machine_id)
     if len(pivot) < 20:
         raise HTTPException(400, f"Not enough readings ({len(pivot)}). Run the simulator longer.")
 
@@ -338,30 +377,43 @@ async def train_anomaly(req: MachineReq):
     scaler = StandardScaler()
     Xs = scaler.fit_transform(X)
 
-    iso = IsolationForest(n_estimators=150, contamination=0.05, random_state=42)
+    iso = IsolationForest(n_estimators=150, contamination=0.02, random_state=42)
     iso.fit(Xs)
 
-    # Calibrate scoring from the training distribution
-    raw = iso.score_samples(Xs)
-    score_mean = float(raw.mean())
-    score_std  = float(raw.std()) or 1e-6
+    # ── Severity calibration ─────────────────────────────────
+    # IsolationForest tells us IF a reading is out of the ordinary, but
+    # its score saturates once a point leaves the training hull, so it
+    # cannot express HOW bad. Severity is therefore measured as the
+    # deviation from the learned normal envelope, in standard deviations:
+    #   z_ref  = typical deviation seen in healthy training data  -> 0%
+    #   z_crit = where that sensor's CRITICAL threshold sits      -> 100%
+    # This keeps the "normal" learned from data while anchoring the top
+    # of the scale to a physically meaningful point.
+    z_ref = float(np.percentile(np.abs(Xs).max(axis=1), 50))
+    z_crit = []
+    for i, sid in enumerate(pivot.columns):
+        crit = sid_to_crit.get(sid)
+        sd = scaler.scale_[i] or 1e-9
+        zc = abs(float(crit) - scaler.mean_[i]) / sd if crit is not None else z_ref + 6
+        z_crit.append(max(zc, z_ref + 1))          # never collapse the scale
 
-    joblib.dump({"model": iso, "scaler": scaler, "sensors": list(pivot.columns),
-                 "score_mean": score_mean, "score_std": score_std},
+    joblib.dump({"model": iso, "scaler": scaler,
+                 "sensor_ids": list(pivot.columns),
+                 "sensor_names": [sid_to_name.get(c, str(c)) for c in pivot.columns],
+                 "z_ref": z_ref, "z_crit": z_crit},
                 f"{MODEL_DIR}/{req.machine_id}_anomaly.joblib")
 
     return {
         "status": "trained",
         "rows_used": int(len(pivot)),
-        "sensors": list(pivot.columns),
-        "score_mean": score_mean,
-        "score_std": score_std,
+        "sensors": [sid_to_name.get(c, str(c)) for c in pivot.columns],
+        "calibration": {"z_ref": round(z_ref, 2)},
     }
 
 
 class DetectReq(BaseModel):
     machine_id: str
-    values: dict          # { sensor_name: value } — current live readings
+    values: dict          # { sensor_id: value } — current live readings
 
 @app.post("/detect")
 async def detect(req: DetectReq):
@@ -370,25 +422,39 @@ async def detect(req: DetectReq):
     if not os.path.exists(path):
         raise HTTPException(404, "No anomaly model. Train anomaly detection first.")
     bundle = joblib.load(path)
-    sensors = bundle["sensors"]
 
-    row = [float(req.values.get(s, 0)) for s in sensors]
+    if "z_crit" not in bundle:
+        raise HTTPException(409, "This model was trained with an older version — click 'Train on history' again.")
+    keys = bundle["sensor_ids"]
+
+    if not any(k in req.values for k in keys):
+        raise HTTPException(400, "Live values didn't match the trained sensors — retrain this machine.")
+
+    row = [float(req.values.get(k, 0)) for k in keys]
     Xs = bundle["scaler"].transform([row])
-    # isolation forest: lower score_samples = more anomalous
-    raw = float(bundle["model"].score_samples(Xs)[0])
-    is_anom = int(bundle["model"].predict(Xs)[0] == -1)
+    is_anom = int(bundle["model"].predict(Xs)[0] == -1)   # IsolationForest: out of distribution?
 
-    # Calibrate to 0..100 using how many std-devs BELOW the training mean.
-    # readings near/above mean -> ~0; several std below -> ->100.
-    mean = bundle.get("score_mean", -0.5)
-    std  = bundle.get("score_std", 0.1)
-    z = (mean - raw) / std            # positive when more anomalous than normal
-    anomaly_pct = round(max(0, min(100, z * 25)), 1)
+    # Severity: how far the worst sensor sits between "normal" and its
+    # critical threshold, measured in learned standard deviations.
+    z = np.abs(Xs[0])
+    z_ref = bundle["z_ref"]
+    z_crit = np.asarray(bundle["z_crit"], dtype=float)
+    sev = (z - z_ref) / np.maximum(z_crit - z_ref, 1e-9)
+    anomaly_pct = round(float(max(0.0, min(100.0, sev.max() * 100))), 1)
+
+    # Which sensors drive the score — makes it actionable, not just a number
+    names = bundle.get("sensor_names", keys)
+    order = np.argsort(-sev)
+    contributors = [
+        {"sensor": names[i], "value": round(row[i], 2), "z": round(float(z[i]), 2)}
+        for i in order[:3] if sev[i] > 0.05
+    ]
 
     return {
         "anomaly_score": anomaly_pct,
         "is_anomaly": bool(is_anom),
         "tier": ("critical" if anomaly_pct >= 70 else "warning" if anomaly_pct >= 40 else "normal"),
+        "contributors": contributors,
     }
 
 

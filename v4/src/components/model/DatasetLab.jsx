@@ -7,14 +7,14 @@
 // ============================================================
 import { useState, useRef, useEffect, useCallback } from 'react'
 import {
-  ComposedChart, Line, Scatter, XAxis, YAxis, Tooltip,
+  ComposedChart, ScatterChart, Line, Scatter, XAxis, YAxis, Tooltip,
   ReferenceLine, ResponsiveContainer,
 } from 'recharts'
 import {
   UploadCloud, FileText, ScanSearch, BrainCircuit, Gauge,
   CheckCircle2, XCircle, RotateCcw, Tag, Rows3,
 } from 'lucide-react'
-import { analyzeDataset, trainClassifier } from '../../lib/mlServer'
+import { analyzeDataset, trainClassifier, predictRisk } from '../../lib/mlServer'
 
 const tooltipStyle = {
   contentStyle: { background: '#ffffff', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 12 },
@@ -94,6 +94,15 @@ export default function DatasetLab({ onComplete }) {
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef(null)
 
+  // ── "Predict maintenance" step ──────────────────────────
+  // After training, feed live sensor values to the trained model and
+  // get a maintenance decision back. This is the point of the whole
+  // exercise: metrics prove the model is sound, this shows it being used.
+  const [machineId, setMachineId] = useState('')
+  const [inputs, setInputs] = useState(null)      // { sensor: value }
+  const [prediction, setPrediction] = useState(null)
+  const [predicting, setPredicting] = useState(false)
+
   const setStep = (id, s) => setSteps(prev => ({ ...prev, [id]: s }))
 
   const run = useCallback(async (file) => {
@@ -123,14 +132,21 @@ export default function DatasetLab({ onComplete }) {
       }
 
       setStep('train', 'active')
-      const machineId = 'lab-' + file.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40)
-      const t = await trainClassifier(file, machineId)
+      const mid = 'lab-' + file.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40)
+      setMachineId(mid)
+      const t = await trainClassifier(file, mid)
       await wait(500)
       setStep('train', 'done'); setStep('eval', 'active')
       await wait(700)                                   // evaluation happens server-side inside /train
       setStep('eval', 'done')
       setResult(t)
       setPhase('done')
+
+      // Seed the prediction sliders with each sensor's average value
+      const seeded = {}
+      for (const s of a.sensors) seeded[s] = Number((a.stats?.[s]?.mean ?? 0).toFixed(2))
+      setInputs(seeded)
+      setPrediction(null)
       onComplete?.()
     } catch (e) {
       setError(e.message.includes('Failed to fetch')
@@ -144,6 +160,50 @@ export default function DatasetLab({ onComplete }) {
   const reset = () => {
     setPhase('idle'); setSteps({}); setAnalysis(null); setResult(null)
     setError(''); setFileName('')
+    setInputs(null); setPrediction(null); setMachineId('')
+  }
+
+  async function runPrediction() {
+    if (!inputs || !machineId) return
+    setPredicting(true)
+    try {
+      setPrediction(await predictRisk(machineId, inputs))
+    } catch (e) {
+      setError(`Prediction failed — ${e.message}`)
+    } finally {
+      setPredicting(false)
+    }
+  }
+
+  // Demo presets. "Worn machine" pushes the two most important sensors in
+  // OPPOSITE directions — the classic overstrain pattern (high load against
+  // low speed). Pushing everything to maximum looks dramatic but is a
+  // coherent operating state, so the model rightly stays calm.
+  function applyPreset(kind) {
+    if (!analysis || !inputs) return
+    const st = n => analysis.stats?.[n]
+    const next = { ...inputs }
+
+    if (kind === 'healthy') {
+      for (const s of analysis.sensors) if (st(s)) next[s] = Number(st(s).mean.toFixed(2))
+    } else {
+      const [first, second] = Object.keys(result?.importance || {})
+      for (const s of analysis.sensors) if (st(s)) next[s] = Number(st(s).mean.toFixed(2))
+      // most important sensor → low end, second → high end
+      if (first && st(first)) {
+        const a = st(first)
+        next[first] = Number((a.min + (a.mean - a.min) * 0.25).toFixed(2))
+      }
+      if (second && st(second)) {
+        const b = st(second)
+        next[second] = Number((b.mean + (b.max - b.mean) * 0.85).toFixed(2))
+      }
+      // and an old tool, if the dataset has a wear-like sensor
+      const wear = analysis.sensors.find(s => /wear|hours|age|cycles/i.test(s))
+      if (wear && st(wear)) next[wear] = Number((st(wear).max * 0.95).toFixed(2))
+    }
+    setInputs(next)
+    setPrediction(null)
   }
 
   const onDrop = e => {
@@ -254,12 +314,189 @@ export default function DatasetLab({ onComplete }) {
             <span className="badge-gray">{result.metrics.test_size?.toLocaleString?.()} test rows</span>
             <span className="badge-gray">RandomForest · 200 trees</span>
           </div>
-          <h3 className="text-sm font-semibold text-gray-900 mb-2">What drives failure (feature importance)</h3>
+
+          {/* Confusion matrix — the percentages as actual machine counts */}
+          {result.metrics.confusion && (() => {
+            const c = result.metrics.confusion
+            const cell = (n, label, tone) => (
+              <div className={`rounded-lg p-3 border ${tone}`}>
+                <p className="text-2xl font-semibold tabular-nums">{n.toLocaleString()}</p>
+                <p className="text-[11px] mt-0.5 leading-tight">{label}</p>
+              </div>
+            )
+            return (
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">What it got right and wrong</h3>
+                <p className="text-xs text-gray-500 mb-3">
+                  On {(c.tn + c.fp + c.fn + c.tp).toLocaleString()} machines it had never seen before.
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {cell(c.tp, 'failures caught', 'bg-green-50 border-green-300 text-green-700')}
+                  {cell(c.fn, 'failures missed', 'bg-red-50 border-red-300 text-red-700')}
+                  {cell(c.fp, 'false alarms', 'bg-yellow-50 border-yellow-300 text-yellow-700')}
+                  {cell(c.tn, 'correctly cleared', 'bg-gray-50 border-gray-200 text-gray-700')}
+                </div>
+                <p className="text-[11px] text-gray-500 mt-2">
+                  Missing a failure costs unplanned downtime; a false alarm costs an unnecessary
+                  inspection. Which matters more is a business decision, and it sets the threshold.
+                </p>
+              </div>
+            )
+          })()}
+          {/* ── Use the trained model: predict maintenance ── */}
+          {inputs && (
+            <div className="mt-6 rounded-xl border-2 border-indigo-200 bg-indigo-50/40 p-4">
+              <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                  <Gauge className="w-4 h-4 text-indigo-600" /> Predict maintenance
+                </h3>
+                <div className="flex gap-2 flex-wrap">
+                  <button onClick={() => applyPreset('healthy')} className="btn-secondary text-xs">
+                    Healthy machine
+                  </button>
+                  <button onClick={() => applyPreset('worn')} className="btn-secondary text-xs">
+                    Worn / overloaded
+                  </button>
+                  <button onClick={runPrediction} disabled={predicting} className="btn-primary text-xs">
+                    {predicting ? 'Predicting…' : 'Predict'}
+                  </button>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mb-3">
+                Enter a machine&apos;s current readings — the trained model returns its
+                failure risk and when it should be serviced.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 mb-3">
+                {analysis.sensors.slice(0, 6).map(s => {
+                  const st = analysis.stats?.[s] || { min: 0, max: 100, mean: 50 }
+                  const span = (st.max - st.min) || 1
+                  const pct = v => Math.max(0, Math.min(100, ((v - st.min) / span) * 100))
+                  const val = inputs[s]
+                  // How far from typical, in % of the sensor's full range
+                  const offset = Math.abs(val - st.mean) / span
+                  const flag = offset > 0.35 ? 'unusual' : offset > 0.18 ? 'above typical' : null
+
+                  return (
+                    <div key={s}>
+                      <div className="flex justify-between items-baseline text-xs mb-0.5 gap-2">
+                        <span className="text-gray-600 truncate">{s}</span>
+                        <span className="flex items-baseline gap-1.5 shrink-0">
+                          {flag && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                              flag === 'unusual'
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-yellow-100 text-yellow-700'}`}>
+                              {flag}
+                            </span>
+                          )}
+                          <span className="text-gray-900 font-medium tabular-nums">{val}</span>
+                        </span>
+                      </div>
+
+                      <div className="relative">
+                        <input type="range" min={st.min} max={st.max} step={span / 100}
+                          value={val}
+                          onChange={e => setInputs(p => ({ ...p, [s]: Number(Number(e.target.value).toFixed(2)) }))}
+                          className="w-full accent-indigo-600 relative z-10" />
+                        {/* dataset average marker */}
+                        <span className="absolute top-1/2 -translate-y-1/2 w-px h-3 bg-gray-400 pointer-events-none"
+                          style={{ left: `${pct(st.mean)}%` }} title="dataset average" />
+                      </div>
+
+                      <div className="flex justify-between text-[10px] text-gray-400 -mt-0.5">
+                        <span>{Number(st.min).toFixed(0)}</span>
+                        <span className="text-gray-500">avg {Number(st.mean).toFixed(0)}</span>
+                        <span>{Number(st.max).toFixed(0)}</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {prediction && (
+                <div className={`rounded-lg p-4 border ${
+                  prediction.tier === 'critical' ? 'bg-red-50 border-red-300'
+                  : prediction.tier === 'warning' ? 'bg-yellow-50 border-yellow-300'
+                  : prediction.tier === 'watch' ? 'bg-yellow-50 border-yellow-200'
+                  : 'bg-green-50 border-green-300'}`}>
+                  <div className="flex items-end justify-between gap-3 flex-wrap">
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wide">Failure risk</p>
+                      <p className={`text-4xl font-semibold tabular-nums ${
+                        prediction.tier === 'critical' ? 'text-red-600'
+                        : prediction.tier === 'warning' || prediction.tier === 'watch' ? 'text-yellow-600'
+                        : 'text-green-600'}`}>{prediction.risk}%</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500 uppercase tracking-wide">Recommended action</p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {prediction.tier === 'critical' ? 'Service immediately'
+                          : prediction.tier === 'warning' ? 'Schedule within days'
+                          : prediction.tier === 'watch' ? 'Monitor closely'
+                          : 'No action needed'}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        indicative horizon ~{prediction.rul_days} days
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <h3 className="text-sm font-semibold text-gray-900 mb-2 mt-6">What drives failure (feature importance)</h3>
           <div className="space-y-2">
             {Object.entries(result.importance || {}).slice(0, 8).map(([name, v], i) => (
               <ImportanceBar key={name} name={name} value={v} max={maxImp} delay={i * 90} />
             ))}
           </div>
+
+          {/* Feature space — the most intuitive plot in the app */}
+          {result.scatter?.points?.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-sm font-semibold text-gray-900 mb-1">
+                Where failures actually happen
+              </h3>
+              <p className="text-xs text-gray-500 mb-3">
+                Every machine in the test set, plotted on the two sensors that matter most.
+                Notice the failures cluster in a <span className="text-gray-800 font-medium">region</span> —
+                they aren&apos;t simply the highest readings. That&apos;s why a threshold rule
+                can&apos;t catch them and a model can.
+              </p>
+              <ResponsiveContainer width="100%" height={300}>
+                <ScatterChart margin={{ top: 10, right: 20, left: 0, bottom: 20 }}>
+                  <XAxis type="number" dataKey="x" name={result.scatter.x_label}
+                    domain={['dataMin', 'dataMax']}
+                    tick={{ fontSize: 10, fill: '#6b7280' }} stroke="#d1d5db"
+                    label={{ value: result.scatter.x_label, position: 'insideBottom', offset: -10,
+                             fontSize: 11, fill: '#6b7280' }} />
+                  <YAxis type="number" dataKey="y" name={result.scatter.y_label}
+                    domain={['dataMin', 'dataMax']}
+                    tick={{ fontSize: 10, fill: '#6b7280' }} stroke="#d1d5db"
+                    label={{ value: result.scatter.y_label, angle: -90, position: 'insideLeft',
+                             fontSize: 11, fill: '#6b7280' }} />
+                  <Tooltip {...tooltipStyle} cursor={{ strokeDasharray: '3 3' }}
+                    formatter={(v, n) => [v, n === 'x' ? result.scatter.x_label : result.scatter.y_label]} />
+                  <Scatter name="healthy" isAnimationActive={false}
+                    data={result.scatter.points.filter(p => !p.failed)}
+                    fill="#cbd5e1" fillOpacity={0.75} />
+                  <Scatter name="failed" isAnimationActive={false}
+                    data={result.scatter.points.filter(p => p.failed)}
+                    fill="#ef4444" fillOpacity={0.95} />
+                </ScatterChart>
+              </ResponsiveContainer>
+              <div className="flex gap-4 text-[11px] text-gray-500 mt-1">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-300" /> healthy machine
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-500" /> actually failed
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Risk over the held-out test set */}
           {result.risk_series?.length > 0 && (

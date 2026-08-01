@@ -154,6 +154,29 @@ export function useMachineDetail(machineId) {
         payload => {
           setBundle(prev => prev ? { ...prev, machine: { ...prev.machine, ...payload.new } } : prev)
         })
+      // Live sensor values — needs data/migration_realtime_sensors.sql,
+      // which adds `sensors` to the realtime publication.
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sensors', filter: `machine_id=eq.${machineId}` },
+        payload => {
+          setBundle(prev => prev ? {
+            ...prev,
+            sensors: prev.sensors.map(s =>
+              s.id === payload.new.id ? { ...s, ...payload.new } : s),
+          } : prev)
+
+          // Append to the 24h chart series so the graphs draw live as the
+          // simulator streams, instead of only refreshing on page load.
+          const v = parseFloat(payload.new.current_value)
+          if (!isNaN(v)) {
+            setHistory(prev => {
+              const list = prev[payload.new.id] || []
+              const cutoff = Date.now() - 24 * 3600 * 1000
+              const next = [...list, { value: v, timestamp: new Date().toISOString() }]
+                .filter(r => new Date(r.timestamp).getTime() >= cutoff)
+              return { ...prev, [payload.new.id]: next }
+            })
+          }
+        })
       .subscribe()
     return () => supabase.removeChannel(channel)
   }, [machineId])
